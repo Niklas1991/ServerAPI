@@ -16,6 +16,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.IdentityModel.Tokens;
+using ServerAPI.Data;
 
 namespace ServerAPI
 {
@@ -31,9 +32,7 @@ namespace ServerAPI
 		// This method gets called by the runtime. Use this method to add services to the container.
 		public void ConfigureServices(IServiceCollection services)
 		{
-            services.AddIdentity<Account, IdentityRole>().AddEntityFrameworkStores<DataContext>().AddDefaultTokenProviders();
-            services.AddDbContext<DataContext>(options =>
-                    options.UseSqlServer(Configuration.GetConnectionString("DataContext")));
+            
 
 
             // Adding Authentication  
@@ -61,7 +60,7 @@ namespace ServerAPI
             // Auto Mapper Configurations
             var mappingConfig = new MapperConfiguration(mc =>
             {
-                mc.AddProfile(new ());
+                mc.AddProfile(new MappingProfile());
             });
             IMapper mapper = mappingConfig.CreateMapper();
             services.AddSingleton(mapper);
