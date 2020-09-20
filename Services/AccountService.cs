@@ -21,10 +21,10 @@ namespace ServerAPI.Services
 {
 	public interface IAccountService
 	{
-		AuthenticateResponse Authenticate(AuthenticateRequest model, string ipAddress);
+		//AuthenticateResponse Authenticate(AuthenticateRequest model, string ipAddress);
 		AuthenticateResponse RefreshToken(string token, string ipAddress);
 		void RevokeToken(string token, string ipAddress);
-		void ValidateResetToken(ValidateResetTokenRequest model);
+		//void ValidateResetToken(ValidateResetTokenRequest model);
 
 
 		//AccountResponse GetById(int id);
@@ -49,30 +49,30 @@ namespace ServerAPI.Services
 			_context = context;
 			_mapper = mapper;
 			_configuration = configuration;
-
+			_appSettings = appSettings.Value;
 		}
 
-		public Task<AuthenticateResponse> Authenticate(AuthenticateRequest model, string ipAddress)
-		{
-			var account = _context.Accounts.SingleOrDefault(x => x.Email == model.Email);
+		//public Task<AuthenticateResponse> Authenticate(AuthenticateRequest model, string ipAddress)
+		//{
+		//	var account = _context.Users.SingleOrDefault(x => x.Email == model.Email);
 
-			if (account == null || !BC.Verify(model.Password, account.PasswordHash))
-				throw new AppException("Email or password is incorrect");
+		//	if (account == null || !BC.Verify(model.Password, account.PasswordHash))
+		//		throw new AppException("Email or password is incorrect");
 
-			// authentication successful so generate jwt and refresh tokens
-			var jwtToken = generateJwtToken(account);
-			var refreshToken = generateRefreshToken(ipAddress);
+		//	// authentication successful so generate jwt and refresh tokens
+		//	var jwtToken = generateJwtToken(account);
+		//	var refreshToken = generateRefreshToken(ipAddress);
 
-			// save refresh token
-			account.RefreshTokens.Add(refreshToken);
-			_context.Update(account);
-			_context.SaveChanges();
+		//	// save refresh token
+		//	account.RefreshTokens.Add(refreshToken);
+		//	_context.Update(account);
+		//	_context.SaveChanges();
 
-			var response = _mapper.Map<AuthenticateResponse>(account);
-			response.JwtToken = jwtToken;
-			response.RefreshToken = refreshToken.Token;
-			return response;
-		}
+		//	var response = _mapper.Map<AuthenticateResponse>(account);
+		//	response.JwtToken = jwtToken;
+		//	response.RefreshToken = refreshToken.Token;
+		//	return response;
+		//}
 
 		public AuthenticateResponse RefreshToken(string token, string ipAddress)
 		{
@@ -81,7 +81,7 @@ namespace ServerAPI.Services
 			// replace old refresh token with a new one and save
 			var newRefreshToken = generateRefreshToken(ipAddress);
 			refreshToken.Revoked = DateTime.UtcNow;
-			refreshToken.RevokedByIp = ipAddress;
+			//refreshToken.RevokedByIp = ipAddress;
 			refreshToken.ReplacedByToken = newRefreshToken.Token;
 			account.RefreshTokens.Add(newRefreshToken);
 			_context.Update(account);
@@ -107,15 +107,15 @@ namespace ServerAPI.Services
 			_context.SaveChanges();
 		}
 
-		public void ValidateResetToken(ValidateResetTokenRequest model)
-		{
-			var account = _context.Accounts.SingleOrDefault(x =>
-				x.ResetToken == model.Token &&
-				x.ResetTokenExpires > DateTime.UtcNow);
+		//public void ValidateResetToken(ValidateResetTokenRequest model)
+		//{
+		//	var account = _context.Users.SingleOrDefault(x =>
+		//		x.ResetToken == model.Token &&
+		//		x.ResetTokenExpires > DateTime.UtcNow);
 
-			if (account == null)
-				throw new AppException("Invalid token");
-		}
+		//	if (account == null)
+		//		throw new AppException("Invalid token");
+		//}
 
 
 
@@ -137,7 +137,7 @@ namespace ServerAPI.Services
 
 		private (RefreshToken, Account) getRefreshToken(string token)
 		{
-			var account = _context.Accounts.SingleOrDefault(u => u.RefreshTokens.Any(t => t.Token == token));
+			var account = _context.Users.SingleOrDefault(u => u.RefreshTokens.Any(t => t.Token == token));
 			if (account == null) throw new AppException("Invalid token");
 			var refreshToken = account.RefreshTokens.Single(x => x.Token == token);
 			if (!refreshToken.IsActive) throw new AppException("Invalid token");

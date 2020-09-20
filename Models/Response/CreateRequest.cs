@@ -4,16 +4,11 @@ using ServerAPI.Entities;
 namespace ServerAPI.Models.Response
 {
     public class CreateRequest
-    {
+    {      
         [Required]
-        public string Title { get; set; }
-
+        public string UserName { get; set; }
         [Required]
-        public string FirstName { get; set; }
-
-        [Required]
-        public string LastName { get; set; }
-
+        public int EmployeeId { get; set; }
         [Required]
         [EnumDataType(typeof(Role))]
         public string Role { get; set; }
@@ -25,9 +20,6 @@ namespace ServerAPI.Models.Response
         [Required]
         [MinLength(6)]
         public string Password { get; set; }
-
-        [Required]
-        [Compare("Password")]
-        public string ConfirmPassword { get; set; }
+       
     }
 }

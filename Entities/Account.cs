@@ -10,7 +10,7 @@ namespace ServerAPI.Entities
 {
 	public class Account : IdentityUser
 	{
-       
+        public int EmployeeId { get; set; }
         public Role Role { get; set; }      
         public DateTime Created { get; set; }
         public DateTime? Updated { get; set; }

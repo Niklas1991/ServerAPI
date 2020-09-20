@@ -38,19 +38,26 @@ namespace ServerAPI.Controllers
 
         [HttpPost]
         [Route("register")]
-        public async Task<IActionResult> Register([FromBody] RegisterRequest model)
+        public async Task<IActionResult> Register([FromBody] RegisterRequest model, Employees employee)
         {
             var userExists = await userManager.FindByNameAsync(model.UserName);
-
+            var employeeExists = await userManager.FindByIdAsync(employee.EmployeeId.ToString());
             if (userExists != null)
                 return StatusCode(StatusCodes.Status400BadRequest, new StatusResponse { Status = "Error", Message = "User already exists with that username!" });
-
+            
             Account user = new Account()
             {
                 Email = model.Email,
                 SecurityStamp = Guid.NewGuid().ToString(),
-                UserName = model.UserName
+                UserName = model.UserName,   
+                
+                
             };
+            if (employeeExists != null)
+            {
+                user.EmployeeId = employee.EmployeeId;
+                return StatusCode(StatusCodes.Status202Accepted, new StatusResponse { Status = "Username & Employee linked!", Message = "User login: " + user.UserName + " linked to Employee: " + employee.FirstName + " " + employee.LastName + "." });
+            }
 
             var result = await userManager.CreateAsync(user, model.Password);
 
@@ -75,19 +82,18 @@ namespace ServerAPI.Controllers
                 Email = model.Email,
                 SecurityStamp = Guid.NewGuid().ToString(),
                 UserName = model.UserName,
+                EmployeeId = model.EmployeeId                
                 
             };
             var mapUser = mapper.Map<Account>(model);
-
+           
+            
+            if (!await roleManager.RoleExistsAsync(Role.Admin.ToString()))
+                await userManager.CreateAsync(mapUser, Role.Admin.ToString());
 
             
-            if (!await userManager.IsInRoleAsync(user, Role.Admin.ToString()))
-                await userManager.CreateAsync(user, Role.Admin.ToString());
 
-            if (!await userManager.IsInRoleAsync(user, Role.Employee.ToString()))
-                await userManager.CreateAsync(user, Role.Employee.ToString());
-
-            var result = await userManager.CreateAsync(user, model.Password);
+            var result = await userManager.CreateAsync(mapUser, model.Password);
             if (!result.Succeeded)
 			{
                 if (!result.Succeeded)

@@ -8,8 +8,9 @@ namespace ServerAPI.Models.Response
 
         [Required]
         public string UserName { get; set; }
-
-     
+        
+        [Required]
+        public int EmployeeId { get; set; }
 
         [Required]
         [EmailAddress]
