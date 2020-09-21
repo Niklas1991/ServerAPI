@@ -122,7 +122,7 @@ namespace ServerAPI.Services
 			var result = await userManager.UpdateAsync(account);
 			if (!result.Succeeded)
 				throw new AppException("Tokenrevoke failed!");
-			
+			//
 			
 		}
 
