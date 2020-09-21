@@ -19,6 +19,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.IdentityModel.Tokens;
 using ServerAPI.Data;
 using ServerAPI.Entities;
+using ServerAPI.Services;
 
 namespace ServerAPI
 {
@@ -73,6 +74,8 @@ namespace ServerAPI
             });
             IMapper mapper = mappingConfig.CreateMapper();
             services.AddSingleton(mapper);
+            services.AddScoped<IAccountService, AccountService>();
+            
 
             services.AddHttpsRedirection(options =>
             {

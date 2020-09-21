@@ -1,4 +1,6 @@
 ﻿using AutoMapper;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
@@ -21,7 +23,7 @@ namespace ServerAPI.Services
 {
 	public interface IAccountService
 	{
-		//AuthenticateResponse Authenticate(AuthenticateRequest model, string ipAddress);
+		Task<AuthenticateResponse> Authenticate(AuthenticateRequest model);
 		AuthenticateResponse RefreshToken(string token, string ipAddress);
 		void RevokeToken(string token, string ipAddress);
 		//void ValidateResetToken(ValidateResetTokenRequest model);
@@ -37,49 +39,55 @@ namespace ServerAPI.Services
 		private readonly IMapper _mapper;
 		private readonly IConfiguration _configuration;
 		private readonly AppSettings _appSettings;
+		private readonly UserManager<Account> userManager;
+		private readonly RoleManager<IdentityRole> roleManager;
 
 
 		public AccountService(
 			NorthwindContext context,
 			IMapper mapper,
 			IOptions<AppSettings> appSettings,
-			IConfiguration configuration)
+			IConfiguration configuration,
+			UserManager<Account> _userManager,
+			RoleManager<IdentityRole> _roleManager)
 
 		{
 			_context = context;
 			_mapper = mapper;
 			_configuration = configuration;
 			_appSettings = appSettings.Value;
+			userManager = _userManager;
+			roleManager = _roleManager;
 		}
 
-		//public Task<AuthenticateResponse> Authenticate(AuthenticateRequest model, string ipAddress)
-		//{
-		//	var account = _context.Users.SingleOrDefault(x => x.Email == model.Email);
+		public async Task<AuthenticateResponse> Authenticate(AuthenticateRequest model)
+		{
+			var user = await userManager.FindByNameAsync(model.UserName);
+			if (user != null && await userManager.CheckPasswordAsync(user, model.Password))
+			{
+				// authentication successful so generate jwt and refresh tokens
+				var jwtToken = generateJwtToken(user);
+				var refreshToken = generateRefreshToken();
 
-		//	if (account == null || !BC.Verify(model.Password, account.PasswordHash))
-		//		throw new AppException("Email or password is incorrect");
+				// save refresh token
+				user.RefreshTokens.Add(refreshToken);
+				_context.Update(user);
+				_context.SaveChanges();
 
-		//	// authentication successful so generate jwt and refresh tokens
-		//	var jwtToken = generateJwtToken(account);
-		//	var refreshToken = generateRefreshToken(ipAddress);
-
-		//	// save refresh token
-		//	account.RefreshTokens.Add(refreshToken);
-		//	_context.Update(account);
-		//	_context.SaveChanges();
-
-		//	var response = _mapper.Map<AuthenticateResponse>(account);
-		//	response.JwtToken = jwtToken;
-		//	response.RefreshToken = refreshToken.Token;
-		//	return response;
-		//}
+				var response = _mapper.Map<AuthenticateResponse>(user);
+				response.JwtToken = jwtToken;
+				response.RefreshToken = refreshToken.Token;
+				return response;
+			}
+			return null;
+		}
 
 		public AuthenticateResponse RefreshToken(string token, string ipAddress)
 		{
 			var (refreshToken, account) = getRefreshToken(token);
 
 			// replace old refresh token with a new one and save
-			var newRefreshToken = generateRefreshToken(ipAddress);
+			var newRefreshToken = generateRefreshToken();
 			refreshToken.Revoked = DateTime.UtcNow;
 			//refreshToken.RevokedByIp = ipAddress;
 			refreshToken.ReplacedByToken = newRefreshToken.Token;
@@ -143,7 +151,7 @@ namespace ServerAPI.Services
 			if (!refreshToken.IsActive) throw new AppException("Invalid token");
 			return (refreshToken, account);
 		}
-		private RefreshToken generateRefreshToken(string ipAddress)
+		private RefreshToken generateRefreshToken()
 		{
 			return new RefreshToken
 			{
@@ -163,10 +171,7 @@ namespace ServerAPI.Services
 			return BitConverter.ToString(randomBytes).Replace("-", "");
 		}
 
-		////public void ValidateResetToken(ValidateResetTokenRequest model)
-		////{
-		////	throw new NotImplementedException();
-		////}
+		
 
 
 	}

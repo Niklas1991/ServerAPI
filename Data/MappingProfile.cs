@@ -2,6 +2,7 @@
 using ServerAPI;
 using ServerAPI.Entities;
 using ServerAPI.Models;
+using ServerAPI.Models.Response;
 
 namespace ServerAPI.Data
 {
@@ -9,7 +10,7 @@ namespace ServerAPI.Data
     {
         public MappingProfile()
         {
-           // CreateMap<RegisterRequest, Account>().ReverseMap();
+           CreateMap<RegisterRequest, Account>().ReverseMap();
         }
     }
 }
