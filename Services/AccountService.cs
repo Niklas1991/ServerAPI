@@ -78,7 +78,7 @@ namespace ServerAPI.Services
 				var result = await userManager.UpdateAsync(user);
 				if (!result.Succeeded)
 				{
-
+					throw new AppException("Unable to authenticate!");
 				}
 
 				var response = _mapper.Map<AuthenticateResponse>(user);
@@ -88,6 +88,32 @@ namespace ServerAPI.Services
 			}
 			return null;
 		}
+
+		
+
+		public async Task<AccountResponse> UpdateUser([FromBody] UpdateRequest model, ClaimsPrincipal user)
+		{
+			var userToUpdate = await userManager.FindByNameAsync(model.UserName);
+			
+		
+			if (userToUpdate == null)
+				throw new AppException("Error, no user found!");
+
+			if (user.Identity.Name != userToUpdate.UserName && user.Claims.Where(s => s.Type == model.Role).Any(s => s.Value == "Admin") == false)
+				throw new AppException("Unauthorized to update this user!");
+			
+			var mappedUser = _mapper.Map(model, userToUpdate);
+
+			var result = await userManager.UpdateAsync(mappedUser);
+
+			if (!result.Succeeded)
+				throw new AppException("User update failed! Please check user details and try again.");
+			mappedUser.Updated = DateTime.Now;
+			var mappedResult = _mapper.Map<AccountResponse>(mappedUser);
+			return mappedResult;
+
+		}
+		#region Tokens
 
 		public async Task<AuthenticateResponse> RefreshToken(string token)
 		{
@@ -122,46 +148,9 @@ namespace ServerAPI.Services
 			var result = await userManager.UpdateAsync(account);
 			if (!result.Succeeded)
 				throw new AppException("Tokenrevoke failed!");
-			
-			
-		}
 
-		public async Task<AccountResponse> UpdateUser([FromBody] UpdateRequest model, ClaimsPrincipal user)
-		{
-			var userToUpdate = await userManager.FindByNameAsync(model.UserName);
-			
-		
-			if (userToUpdate == null)
-				throw new AppException("Error, no user found!");
-
-			if (user.Identity.Name != userToUpdate.UserName && user.Claims.Where(s => s.Type == model.Role).Any(s => s.Value == "Admin") == false)
-				throw new AppException("Unauthorized to update this user!");
-			
-			var mappedUser = _mapper.Map(model, userToUpdate);
-
-			var result = await userManager.UpdateAsync(mappedUser);
-
-			if (!result.Succeeded)
-				throw new AppException("User update failed! Please check user details and try again.");
-			mappedUser.Updated = DateTime.Now;
-			var mappedResult = _mapper.Map<AccountResponse>(mappedUser);
-			return mappedResult;
 
 		}
-
-		//public void ValidateResetToken(ValidateResetTokenRequest model)
-		//{
-		//	var account = _context.Users.SingleOrDefault(x =>
-		//		x.ResetToken == model.Token &&
-		//		x.ResetTokenExpires > DateTime.UtcNow);
-
-		//	if (account == null)
-		//		throw new AppException("Invalid token");
-		//}
-
-
-
-
 
 		private async Task<string> GenerateJWTToken(Account account)
 		{
@@ -219,8 +208,8 @@ namespace ServerAPI.Services
 			return BitConverter.ToString(randomBytes).Replace("-", "");
 		}
 
-		
 
+		#endregion
 
 	}
 }

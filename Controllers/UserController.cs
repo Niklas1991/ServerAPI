@@ -29,7 +29,6 @@ namespace ServerAPI.Controllers
         private readonly IConfiguration configuration;
         private readonly IMapper mapper;
         private readonly NorthwindContext context;
-        private readonly string typeSchema = @"http://schemas.microsoft.com/ws/2008/06/identity/claims/role";
         private readonly IAccountService accountService;
 
         public UserController(UserManager<Account> _userManager, RoleManager<IdentityRole> _roleManager, IConfiguration _configuration, IMapper _mapper, NorthwindContext _context, IAccountService _accounService)
@@ -59,23 +58,29 @@ namespace ServerAPI.Controllers
             //setTokenCookie(response.RefreshToken);
             return Ok(response);
         }
+        
         [HttpPost]
         [Route("register-employee")]
         public async Task<IActionResult> RegisterEmployee([FromBody] RegisterRequest model)
         {
+            //Checks if a user exists with Username specified
+            var userExists = await userManager.FindByNameAsync(model.UserName);
+            var employeeExists = userManager.Users.Where(x => x.EmployeeId == model.EmployeeId);
+            if (userExists != null)
+                return StatusCode(StatusCodes.Status400BadRequest, new StatusResponse { Status = "Error", Message = "User already exists with that username!" });
 
+            //Finds employee with the specified EmployeeID
             string query = @"Select * FROM Employees WHERE EmployeeID = @EmployeeID ";
             using (SqlConnection connection = new SqlConnection(configuration.GetConnectionString("DataContext")))
             {
                 SqlCommand command = new SqlCommand(query, connection);
                 command.Parameters.AddWithValue("@EmployeeID", model.EmployeeId);
-            };
-            
-            var userExists = await userManager.FindByNameAsync(model.UserName);
-            var employeeExists = await userManager.FindByIdAsync(model.EmployeeId.ToString());
-            if (userExists != null)
-                return StatusCode(StatusCodes.Status400BadRequest, new StatusResponse { Status = "Error", Message = "User already exists with that username!" });
+                var sqlResult = await command.ExecuteScalarAsync();
 
+                if (sqlResult == null)
+                    throw new Exception("Employee does not exist.");
+            };
+                      
             var user = mapper.Map<Account>(model);
            
             if (employeeExists != null)
@@ -213,62 +218,35 @@ namespace ServerAPI.Controllers
             return Ok(new StatusResponse { Status = "Success", Message = "User created successfully!" });
         }
 
-		//[Authorize(Roles = Policies.Admin)]
-		//[HttpGet]
-		//[Route("get-all-users")]
-		//public async Task<IActionResult> GetAll()
-		//{
-		//    var users = await userManager.Users.ToListAsync();
-		//    if (users == null)
-		//        return StatusCode(StatusCodes.Status404NotFound, new StatusResponse { Status = "Error", Message = "No users found!" });
-
-		//    var mappedResult = mapper.Map<IEnumerable<UserResponse>>(users);
-		//    return Ok(mappedResult);
-		//}
-
-		[Authorize]
-		[HttpPatch]
-		[Route("update")]
-		public async Task<IActionResult> Update(string username, [FromBody] UpdateRequest model)
+		//[Authorize(Roles = "VD")]
+		[HttpGet]
+		[Route("get-all-users")]
+		public async Task<IActionResult> GetAllUsers()
 		{
-			var userToUpdate = await userManager.FindByNameAsync(username);
-			var user = Request.HttpContext.User;
+			var users = await userManager.Users.ToListAsync();
+			if (users == null)
+				return StatusCode(StatusCodes.Status404NotFound, new StatusResponse { Status = "Error", Message = "No users found!" });
 
-			if (userToUpdate == null)
-				return StatusCode(StatusCodes.Status400BadRequest, new StatusResponse { Status = "Error", Message = "" });
-
-			if (user.Identity.Name != userToUpdate.UserName && user.Claims.Where(s => s.Type == typeSchema).Any(s => s.Value == "Admin") == false)
-				return StatusCode(StatusCodes.Status401Unauthorized, new StatusResponse { Status = "Error", Message = "Unathorized to update this user!" });
-
-			var mappedResult = mapper.Map<UpdateRequest, Account>(model, userToUpdate);
-
-			var result = await userManager.UpdateAsync(mappedResult);
-
-			if (!result.Succeeded)
-				return StatusCode(StatusCodes.Status500InternalServerError, new StatusResponse { Status = "Error", Message = "User update failed! Please check user details and try again." });
-
-			return Ok(new StatusResponse { Status = "Success", Message = "User updated successfully!" });
+			var mappedResult = mapper.Map<IEnumerable<UserResponse>>(users);
+			return Ok(mappedResult);
 		}
 
-		//[Authorize]
-		//[HttpDelete]
-		//[Route("delete")]
-		//public async Task<IActionResult> Delete(string username)
-		//{
-		//    var userToDelete = await userManager.FindByNameAsync(username);
-		//    var user = Request.HttpContext.User;
 
-		//    if (userToDelete == null)
-		//        return StatusCode(StatusCodes.Status400BadRequest, new StatusResponse { Status = "Error", Message = "" });
+		[Authorize(Roles = "Admin")]
+		[HttpDelete]
+		[Route("delete")]
+		public async Task<IActionResult> Delete(string userName)
+		{
+			var userToDelete = await userManager.FindByNameAsync(userName);
+		
+			if (userToDelete == null)
+				return StatusCode(StatusCodes.Status400BadRequest, new StatusResponse { Status = "Error", Message = "User not found" });
+            			
+			var result = await userManager.DeleteAsync(userToDelete);
+			if (!result.Succeeded)
+				return StatusCode(StatusCodes.Status500InternalServerError, new StatusResponse { Status = "Error", Message = "User deletion failed! Please check user details and try again." });
 
-		//    if (user.Identity.Name != userToDelete.UserName && user.Claims.Where(s => s.Type == typeSchema).Any(s => s.Value == "Admin") == false)
-		//        return StatusCode(StatusCodes.Status401Unauthorized, new StatusResponse { Status = "Error", Message = "Unathorized to delete this user!" });
-
-		//    var result = await userManager.DeleteAsync(userToDelete);
-		//    if (!result.Succeeded)
-		//        return StatusCode(StatusCodes.Status500InternalServerError, new StatusResponse { Status = "Error", Message = "User deletion failed! Please check user details and try again." });
-
-		//    return Ok(new StatusResponse { Status = "Success", Message = "User deleted successfully!" });
-		//}
+			return Ok(new StatusResponse { Status = "Success", Message = "User deleted successfully!" });
+		}
 	}
 }

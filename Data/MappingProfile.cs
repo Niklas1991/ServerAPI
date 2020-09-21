@@ -15,6 +15,8 @@ namespace ServerAPI.Data
            CreateMap<UpdateRequest, AccountResponse>().ReverseMap();
            CreateMap<UpdateRequest, Account>().ReverseMap();
            CreateMap<AccountResponse, Account>().ReverseMap();
+           CreateMap<Account, UserResponse>().ReverseMap();
         }
+
     }
 }
