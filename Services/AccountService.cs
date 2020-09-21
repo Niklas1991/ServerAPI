@@ -18,18 +18,21 @@ using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.Http;
 
 namespace ServerAPI.Services
 {
 	public interface IAccountService
 	{
 		Task<AuthenticateResponse> Authenticate(AuthenticateRequest model);
-		AuthenticateResponse RefreshToken(string token, string ipAddress);
-		void RevokeToken(string token, string ipAddress);
+		Task<AuthenticateResponse> RefreshToken(string token);
+		Task RevokeToken(string token);
+		Task<AccountResponse> UpdateUser([FromBody] UpdateRequest model, ClaimsPrincipal user);
+
 		//void ValidateResetToken(ValidateResetTokenRequest model);
 
 
-		//AccountResponse GetById(int id);
+
 
 	}
 
@@ -65,14 +68,18 @@ namespace ServerAPI.Services
 			var user = await userManager.FindByNameAsync(model.UserName);
 			if (user != null && await userManager.CheckPasswordAsync(user, model.Password))
 			{
+
 				// authentication successful so generate jwt and refresh tokens
-				var jwtToken = generateJwtToken(user);
-				var refreshToken = generateRefreshToken();
+				var jwtToken = await GenerateJWTToken(user);
+				var refreshToken = GenerateRefreshToken();
 
 				// save refresh token
 				user.RefreshTokens.Add(refreshToken);
-				_context.Update(user);
-				_context.SaveChanges();
+				var result = await userManager.UpdateAsync(user);
+				if (!result.Succeeded)
+				{
+
+				}
 
 				var response = _mapper.Map<AuthenticateResponse>(user);
 				response.JwtToken = jwtToken;
@@ -82,21 +89,22 @@ namespace ServerAPI.Services
 			return null;
 		}
 
-		public AuthenticateResponse RefreshToken(string token, string ipAddress)
+		public async Task<AuthenticateResponse> RefreshToken(string token)
 		{
-			var (refreshToken, account) = getRefreshToken(token);
+			var (refreshToken, account) = GetRefreshToken(token);
 
 			// replace old refresh token with a new one and save
-			var newRefreshToken = generateRefreshToken();
+			var newRefreshToken = GenerateRefreshToken();
 			refreshToken.Revoked = DateTime.UtcNow;
 			//refreshToken.RevokedByIp = ipAddress;
 			refreshToken.ReplacedByToken = newRefreshToken.Token;
 			account.RefreshTokens.Add(newRefreshToken);
-			_context.Update(account);
-			_context.SaveChanges();
+			var result = await userManager.UpdateAsync(account);
+			if (!result.Succeeded)
+				throw new AppException("Refreshtoken could not be added!");
 
 			// generate new jwt
-			var jwtToken = generateJwtToken(account);
+			var jwtToken = await GenerateJWTToken(account);
 
 			var response = _mapper.Map<AuthenticateResponse>(account);
 			response.JwtToken = jwtToken;
@@ -104,15 +112,41 @@ namespace ServerAPI.Services
 			return response;
 		}
 
-		public void RevokeToken(string token, string ipAddress)
+		public async Task RevokeToken(string token)
 		{
-			var (refreshToken, account) = getRefreshToken(token);
+			var (refreshToken, account) = GetRefreshToken(token);
 
 			// revoke token and save
 			refreshToken.Revoked = DateTime.UtcNow;
 
-			_context.Update(account);
-			_context.SaveChanges();
+			var result = await userManager.UpdateAsync(account);
+			if (!result.Succeeded)
+				throw new AppException("Tokenrevoke failed!");
+			
+			
+		}
+
+		public async Task<AccountResponse> UpdateUser([FromBody] UpdateRequest model, ClaimsPrincipal user)
+		{
+			var userToUpdate = await userManager.FindByNameAsync(model.UserName);
+			
+		
+			if (userToUpdate == null)
+				throw new AppException("Error, no user found!");
+
+			if (user.Identity.Name != userToUpdate.UserName && user.Claims.Where(s => s.Type == model.Role).Any(s => s.Value == "Admin") == false)
+				throw new AppException("Unauthorized to update this user!");
+			
+			var mappedUser = _mapper.Map(model, userToUpdate);
+
+			var result = await userManager.UpdateAsync(mappedUser);
+
+			if (!result.Succeeded)
+				throw new AppException("User update failed! Please check user details and try again.");
+			mappedUser.Updated = DateTime.Now;
+			var mappedResult = _mapper.Map<AccountResponse>(mappedUser);
+			return mappedResult;
+
 		}
 
 		//public void ValidateResetToken(ValidateResetTokenRequest model)
@@ -129,21 +163,35 @@ namespace ServerAPI.Services
 
 
 
-		private string generateJwtToken(Account account)
+		private async Task<string> GenerateJWTToken(Account account)
 		{
-			var tokenHandler = new JwtSecurityTokenHandler();
-			var key = Encoding.ASCII.GetBytes(_appSettings.Secret);
-			var tokenDescriptor = new SecurityTokenDescriptor
+			var userRoles = await userManager.GetRolesAsync(account);
+			var authClaims = new List<Claim>
+				{
+					new Claim(ClaimTypes.Name, account.UserName),
+					new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
+				};
+
+			foreach (var userRole in userRoles)
 			{
-				Subject = new ClaimsIdentity(new[] { new Claim("id", account.Id.ToString()) }),
-				Expires = DateTime.UtcNow.AddMinutes(15),
-				SigningCredentials = new SigningCredentials(new SymmetricSecurityKey(key), SecurityAlgorithms.HmacSha256Signature)
-			};
-			var token = tokenHandler.CreateToken(tokenDescriptor);
-			return tokenHandler.WriteToken(token);
+				authClaims.Add(new Claim(ClaimTypes.Role, userRole));
+			}
+
+			
+			var key = Encoding.ASCII.GetBytes(_configuration["JWT:Secret"]);
+			var tokenDescriptor = new JwtSecurityToken(
+				issuer: _configuration["JWT:ValidIssuer"],
+				audience: _configuration["JWT:ValidAudience"],
+				expires: DateTime.UtcNow.AddMinutes(10),
+				claims: authClaims,
+				signingCredentials: new SigningCredentials(new SymmetricSecurityKey(key), SecurityAlgorithms.HmacSha256Signature)
+				
+			);
+			var token = new JwtSecurityTokenHandler().WriteToken(tokenDescriptor);
+			return token;
 		}
 
-		private (RefreshToken, Account) getRefreshToken(string token)
+		private (RefreshToken, Account) GetRefreshToken(string token)
 		{
 			var account = _context.Users.SingleOrDefault(u => u.RefreshTokens.Any(t => t.Token == token));
 			if (account == null) throw new AppException("Invalid token");
@@ -151,18 +199,18 @@ namespace ServerAPI.Services
 			if (!refreshToken.IsActive) throw new AppException("Invalid token");
 			return (refreshToken, account);
 		}
-		private RefreshToken generateRefreshToken()
+		private RefreshToken GenerateRefreshToken()
 		{
 			return new RefreshToken
 			{
-				Token = randomTokenString(),
+				Token = RandomTokenString(),
 				Expires = DateTime.UtcNow.AddDays(7),
 				Created = DateTime.UtcNow,
 
 			};
 		}
 
-		private string randomTokenString()
+		private string RandomTokenString()
 		{
 			using var rngCryptoServiceProvider = new RNGCryptoServiceProvider();
 			var randomBytes = new byte[40];

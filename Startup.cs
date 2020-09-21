@@ -75,7 +75,9 @@ namespace ServerAPI
             IMapper mapper = mappingConfig.CreateMapper();
             services.AddSingleton(mapper);
             services.AddScoped<IAccountService, AccountService>();
-            
+            //services.AddControllers().AddNewtonsoftJson(options =>
+            //    options.SerializerSettings.ReferenceLoopHandling = Newtonsoft.Json.ReferenceLoopHandling.Ignore
+            //);
 
             services.AddHttpsRedirection(options =>
             {

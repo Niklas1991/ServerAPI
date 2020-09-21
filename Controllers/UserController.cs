@@ -43,15 +43,25 @@ namespace ServerAPI.Controllers
         }
 
         [HttpPost("authenticate")]
-        public ActionResult<AuthenticateResponse> Authenticate(AuthenticateRequest model)
+        public async Task<IActionResult> Authenticate([FromBody] AuthenticateRequest model)
         {
-            var response = accountService.Authenticate(model);
+            var response = await accountService.Authenticate(model);
+            //setTokenCookie(response.RefreshToken);
+            return Ok(response);
+        }
+        [Authorize]
+        [HttpPatch("update-employee")]
+        public async Task<IActionResult> UpdateUser([FromBody] UpdateRequest model)
+        {
+            
+            var user = Request.HttpContext.User;
+            var response = await accountService.UpdateUser(model, user);
             //setTokenCookie(response.RefreshToken);
             return Ok(response);
         }
         [HttpPost]
         [Route("register-employee")]
-        public async Task<IActionResult> Register([FromBody] RegisterRequest model)
+        public async Task<IActionResult> RegisterEmployee([FromBody] RegisterRequest model)
         {
 
             string query = @"Select * FROM Employees WHERE EmployeeID = @EmployeeID ";
@@ -126,63 +136,139 @@ namespace ServerAPI.Controllers
             }
             return Ok(new StatusResponse { Status = "Success", Message = "Admin User created successfully!" });
         }
+        [Authorize(Roles = "Admin")]
+        [HttpPost]
+        [Route("register-vd")]
+        public async Task<IActionResult> RegisterVD([FromBody] RegisterRequest model)
+        {
 
-        //[Authorize(Roles = Policies.Admin)]
-        //[HttpGet]
-        //[Route("get-all-users")]
-        //public async Task<IActionResult> GetAll()
-        //{
-        //    var users = await userManager.Users.ToListAsync();
-        //    if (users == null)
-        //        return StatusCode(StatusCodes.Status404NotFound, new StatusResponse { Status = "Error", Message = "No users found!" });
+            string query = @"Select * FROM Employees WHERE EmployeeID = @EmployeeID ";
+            using (SqlConnection connection = new SqlConnection(configuration.GetConnectionString("DataContext")))
+            {
+                SqlCommand command = new SqlCommand(query, connection);
+                command.Parameters.AddWithValue("@EmployeeID", model.EmployeeId);
+            };
 
-        //    var mappedResult = mapper.Map<IEnumerable<UserResponse>>(users);
-        //    return Ok(mappedResult);
-        //}
+            var userExists = await userManager.FindByNameAsync(model.UserName);
+            var employeeExists = await userManager.FindByIdAsync(model.EmployeeId.ToString());
+            if (userExists != null)
+                return StatusCode(StatusCodes.Status400BadRequest, new StatusResponse { Status = "Error", Message = "User already exists with that username!" });
 
-        //[Authorize]
-        //[HttpPatch]
-        //[Route("update")]
-        //public async Task<IActionResult> Update(string username, [FromBody] UpdateUser model)
-        //{
-        //    var userToUpdate = await userManager.FindByNameAsync(username);
-        //    var user = Request.HttpContext.User;
+            var user = mapper.Map<Account>(model);
 
-        //    if (userToUpdate == null)
-        //        return StatusCode(StatusCodes.Status400BadRequest, new StatusResponse { Status = "Error", Message = "" });
+            if (employeeExists != null)
+            {
+                user.EmployeeId = model.EmployeeId;
+                return StatusCode(StatusCodes.Status202Accepted, new StatusResponse { Status = "Username & Employee linked!", Message = "User linked to Employee succeeded!" });
+            }
+            if (!await roleManager.RoleExistsAsync(Role.Employee.ToString()))
+                await roleManager.CreateAsync(new IdentityRole(Role.Employee.ToString()));
+            if (await roleManager.RoleExistsAsync(Role.Employee.ToString()))
+                await userManager.AddToRoleAsync(user, Role.Employee.ToString());
+            if (!await roleManager.RoleExistsAsync(Role.VD.ToString()))
+                await roleManager.CreateAsync(new IdentityRole(Role.VD.ToString()));
+            if (await roleManager.RoleExistsAsync(Role.VD.ToString()))
+                await userManager.AddToRoleAsync(user, Role.VD.ToString());
+            var result = await userManager.CreateAsync(user, model.Password);
 
-        //    if (user.Identity.Name != userToUpdate.UserName && user.Claims.Where(s => s.Type == typeSchema).Any(s => s.Value == "Admin") == false)
-        //        return StatusCode(StatusCodes.Status401Unauthorized, new StatusResponse { Status = "Error", Message = "Unathorized to update this user!" });
+            if (!result.Succeeded)
+                return StatusCode(StatusCodes.Status500InternalServerError, new StatusResponse { Status = "Error", Message = "User creation failed! Please check user details and try again." });
 
-        //    var mappedResult = mapper.Map<UpdateRequest, Account>(model, userToUpdate);
+            return Ok(new StatusResponse { Status = "Success", Message = "User created successfully!" });
+        }
+        [Authorize(Roles = "Admin")]
+        [HttpPost]
+        [Route("register-countrymanager")]
+        public async Task<IActionResult> RegisterCountryManager([FromBody] RegisterRequest model)
+        {
 
-        //    var result = await userManager.UpdateAsync(mappedResult);
+            string query = @"Select * FROM Employees WHERE EmployeeID = @EmployeeID ";
+            using (SqlConnection connection = new SqlConnection(configuration.GetConnectionString("DataContext")))
+            {
+                SqlCommand command = new SqlCommand(query, connection);
+                command.Parameters.AddWithValue("@EmployeeID", model.EmployeeId);
+            };
 
-        //    if (!result.Succeeded)
-        //        return StatusCode(StatusCodes.Status500InternalServerError, new StatusResponse { Status = "Error", Message = "User update failed! Please check user details and try again." });
+            var userExists = await userManager.FindByNameAsync(model.UserName);
+            var employeeExists = await userManager.FindByIdAsync(model.EmployeeId.ToString());
+            if (userExists != null)
+                return StatusCode(StatusCodes.Status400BadRequest, new StatusResponse { Status = "Error", Message = "User already exists with that username!" });
 
-        //    return Ok(new StatusResponse { Status = "Success", Message = "User updated successfully!" });
-        //}
+            var user = mapper.Map<Account>(model);
 
-        //[Authorize]
-        //[HttpDelete]
-        //[Route("delete")]
-        //public async Task<IActionResult> Delete(string username)
-        //{
-        //    var userToDelete = await userManager.FindByNameAsync(username);
-        //    var user = Request.HttpContext.User;
+            if (employeeExists != null)
+            {
+                user.EmployeeId = model.EmployeeId;
+                return StatusCode(StatusCodes.Status202Accepted, new StatusResponse { Status = "Username & Employee linked!", Message = "User linked to Employee succeeded!" });
+            }
+            if (!await roleManager.RoleExistsAsync(Role.Employee.ToString()))
+                await roleManager.CreateAsync(new IdentityRole(Role.Employee.ToString()));
+            if (await roleManager.RoleExistsAsync(Role.Employee.ToString()))
+                await userManager.AddToRoleAsync(user, Role.Employee.ToString());
+            var result = await userManager.CreateAsync(user, model.Password);
 
-        //    if (userToDelete == null)
-        //        return StatusCode(StatusCodes.Status400BadRequest, new StatusResponse { Status = "Error", Message = "" });
+            if (!result.Succeeded)
+                return StatusCode(StatusCodes.Status500InternalServerError, new StatusResponse { Status = "Error", Message = "User creation failed! Please check user details and try again." });
 
-        //    if (user.Identity.Name != userToDelete.UserName && user.Claims.Where(s => s.Type == typeSchema).Any(s => s.Value == "Admin") == false)
-        //        return StatusCode(StatusCodes.Status401Unauthorized, new StatusResponse { Status = "Error", Message = "Unathorized to delete this user!" });
+            return Ok(new StatusResponse { Status = "Success", Message = "User created successfully!" });
+        }
 
-        //    var result = await userManager.DeleteAsync(userToDelete);
-        //    if (!result.Succeeded)
-        //        return StatusCode(StatusCodes.Status500InternalServerError, new StatusResponse { Status = "Error", Message = "User deletion failed! Please check user details and try again." });
+		//[Authorize(Roles = Policies.Admin)]
+		//[HttpGet]
+		//[Route("get-all-users")]
+		//public async Task<IActionResult> GetAll()
+		//{
+		//    var users = await userManager.Users.ToListAsync();
+		//    if (users == null)
+		//        return StatusCode(StatusCodes.Status404NotFound, new StatusResponse { Status = "Error", Message = "No users found!" });
 
-        //    return Ok(new StatusResponse { Status = "Success", Message = "User deleted successfully!" });
-        //}
-    }
+		//    var mappedResult = mapper.Map<IEnumerable<UserResponse>>(users);
+		//    return Ok(mappedResult);
+		//}
+
+		[Authorize]
+		[HttpPatch]
+		[Route("update")]
+		public async Task<IActionResult> Update(string username, [FromBody] UpdateRequest model)
+		{
+			var userToUpdate = await userManager.FindByNameAsync(username);
+			var user = Request.HttpContext.User;
+
+			if (userToUpdate == null)
+				return StatusCode(StatusCodes.Status400BadRequest, new StatusResponse { Status = "Error", Message = "" });
+
+			if (user.Identity.Name != userToUpdate.UserName && user.Claims.Where(s => s.Type == typeSchema).Any(s => s.Value == "Admin") == false)
+				return StatusCode(StatusCodes.Status401Unauthorized, new StatusResponse { Status = "Error", Message = "Unathorized to update this user!" });
+
+			var mappedResult = mapper.Map<UpdateRequest, Account>(model, userToUpdate);
+
+			var result = await userManager.UpdateAsync(mappedResult);
+
+			if (!result.Succeeded)
+				return StatusCode(StatusCodes.Status500InternalServerError, new StatusResponse { Status = "Error", Message = "User update failed! Please check user details and try again." });
+
+			return Ok(new StatusResponse { Status = "Success", Message = "User updated successfully!" });
+		}
+
+		//[Authorize]
+		//[HttpDelete]
+		//[Route("delete")]
+		//public async Task<IActionResult> Delete(string username)
+		//{
+		//    var userToDelete = await userManager.FindByNameAsync(username);
+		//    var user = Request.HttpContext.User;
+
+		//    if (userToDelete == null)
+		//        return StatusCode(StatusCodes.Status400BadRequest, new StatusResponse { Status = "Error", Message = "" });
+
+		//    if (user.Identity.Name != userToDelete.UserName && user.Claims.Where(s => s.Type == typeSchema).Any(s => s.Value == "Admin") == false)
+		//        return StatusCode(StatusCodes.Status401Unauthorized, new StatusResponse { Status = "Error", Message = "Unathorized to delete this user!" });
+
+		//    var result = await userManager.DeleteAsync(userToDelete);
+		//    if (!result.Succeeded)
+		//        return StatusCode(StatusCodes.Status500InternalServerError, new StatusResponse { Status = "Error", Message = "User deletion failed! Please check user details and try again." });
+
+		//    return Ok(new StatusResponse { Status = "Success", Message = "User deleted successfully!" });
+		//}
+	}
 }

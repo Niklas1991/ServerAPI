@@ -11,6 +11,10 @@ namespace ServerAPI.Data
         public MappingProfile()
         {
            CreateMap<RegisterRequest, Account>().ReverseMap();
+           CreateMap<AuthenticateResponse, Account>().ReverseMap();
+           CreateMap<UpdateRequest, AccountResponse>().ReverseMap();
+           CreateMap<UpdateRequest, Account>().ReverseMap();
+           CreateMap<AccountResponse, Account>().ReverseMap();
         }
     }
 }

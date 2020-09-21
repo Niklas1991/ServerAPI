@@ -10,10 +10,9 @@ namespace ServerAPI.Models.Response
         private string _role;
         private string _email;
         
-        public string Title { get; set; }
-        public string FirstName { get; set; }
-        public string LastName { get; set; }
-
+       
+        [Required]
+        public string UserName { get; set; }
         [EnumDataType(typeof(Role))]
         public string Role
         {
@@ -35,12 +34,7 @@ namespace ServerAPI.Models.Response
             set => _password = replaceEmptyWithNull(value);
         }
 
-        [Compare("Password")]
-        public string ConfirmPassword 
-        {
-            get => _confirmPassword;
-            set => _confirmPassword = replaceEmptyWithNull(value);
-        }
+     
 
         // helpers
 
