@@ -56,34 +56,55 @@ namespace ServerAPI.Controllers
         [HttpGet("get-country-orders")]
         public async Task<ActionResult<IEnumerable<Orders>>> GetCountryOrders(string country)
         {
-            
+            var orderResult = new List<Orders>();
             var user = await userManager.FindByNameAsync(HttpContext.User.Identity.Name);
             if (await userManager.IsInRoleAsync(user, Role.CountryManager.ToString()) == true)  
 			{
                 var employee = await context.Employees.Where(x => x.EmployeeId == user.EmployeeId).FirstOrDefaultAsync();
-                var orderResult = await context.Orders.Where(x => x.ShipCountry == employee.Country).ToListAsync();
+                orderResult = await context.Orders.Where(x => x.ShipCountry == employee.Country).ToListAsync();
                 if (orderResult == null)
 				{
-                    return StatusCode(StatusCodes.Status500InternalServerError);
-				}
+                    return NotFound();
+                }                
 			}
             if (await userManager.IsInRoleAsync(user, Role.Admin.ToString()) == true || await userManager.IsInRoleAsync(user, Role.VD.ToString()) == true)
             {
-                var orderResult = await context.Orders.Where(x => x.ShipCountry == country).ToListAsync();
-                return orderResult;
+                orderResult = await context.Orders.Where(x => x.ShipCountry == country).ToListAsync();
+                return NotFound();
 			}
-
-            var result = await context.Orders.ToListAsync();
-			if (result != null)
-			{
-                return StatusCode(StatusCodes.Status400BadRequest, new StatusResponse { Status = "Error", Message = "Something went wrong" });
-            }
-            return Ok(result);
+            return Ok(orderResult);
         }
 
-        // PUT: api/Order/5
-        // To protect from overposting attacks, enable the specific properties you want to bind to, for
-        // more details, see https://go.microsoft.com/fwlink/?linkid=2123754.
+        [Authorize(Roles = "Employee,Admin,VD")]
+        [HttpGet("get-my-orders")]
+        public async Task<ActionResult<IEnumerable<Orders>>> GetMyOrders(int employeeId)
+        {
+            var orderResult = new List<Orders>();
+            var user = await userManager.FindByNameAsync(HttpContext.User.Identity.Name);
+            var employee = await context.Employees.Where(x => x.EmployeeId == user.EmployeeId).FirstOrDefaultAsync();
+
+            if (await userManager.IsInRoleAsync(user, Role.VD.ToString()) == true || await userManager.IsInRoleAsync(user, Role.Admin.ToString())==true)
+			{               
+                orderResult = await context.Orders.Where(x => x.EmployeeId == employeeId).ToListAsync();
+                if (orderResult == null)
+                {
+                    return NotFound();
+                }
+                return Ok(orderResult);
+            }
+            if (await userManager.IsInRoleAsync(user, Role.Employee.ToString()))
+			{
+                orderResult = await context.Orders.Where(x => x.EmployeeId == employee.EmployeeId).ToListAsync();
+                if (orderResult == null)
+                {
+                    return NotFound();
+                }
+                return Ok(orderResult);
+            }
+            return Unauthorized();
+        }
+        
+
         [HttpPut("{id}")]
         public async Task<IActionResult> PutOrders(int id, Orders orders)
         {
