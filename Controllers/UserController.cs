@@ -45,7 +45,7 @@ namespace ServerAPI.Controllers
         public async Task<IActionResult> Authenticate([FromBody] AuthenticateRequest model)
         {
             var response = await accountService.Authenticate(model);
-            //setTokenCookie(response.RefreshToken);
+            
             return Ok(response);
         }
         [Authorize]
@@ -55,7 +55,6 @@ namespace ServerAPI.Controllers
             
             var user = Request.HttpContext.User;
             var response = await accountService.UpdateUser(model, user);
-            //setTokenCookie(response.RefreshToken);
             return Ok(response);
         }
         
@@ -74,33 +73,36 @@ namespace ServerAPI.Controllers
             using (SqlConnection connection = new SqlConnection(configuration.GetConnectionString("DataContext")))
             {
                 SqlCommand command = new SqlCommand(query, connection);
+                await connection.OpenAsync();
                 command.Parameters.AddWithValue("@EmployeeID", model.EmployeeId);
-                var sqlResult = await command.ExecuteScalarAsync();
+                var sqlResult = await command.ExecuteNonQueryAsync();
 
-                if (sqlResult == null)
+                if (sqlResult != -1)
                     throw new Exception("Employee does not exist.");
             };
                       
             var user = mapper.Map<Account>(model);
            
-            if (employeeExists != null)
-            {
-                user.EmployeeId = model.EmployeeId;
-                return StatusCode(StatusCodes.Status202Accepted, new StatusResponse { Status = "Username & Employee linked!", Message = "User linked to Employee succeeded!" });
-            }
+            //if (employeeExists != null)
+            //{
+            //    user.EmployeeId = model.EmployeeId;
+            //    return StatusCode(StatusCodes.Status202Accepted, new StatusResponse { Status = "Username & Employee linked!", Message = "User linked to Employee succeeded!" });
+            //}
             if (!await roleManager.RoleExistsAsync(Role.Employee.ToString()))
-                await roleManager.CreateAsync(new IdentityRole(Role.Employee.ToString()));
-            if (await roleManager.RoleExistsAsync(Role.Employee.ToString()))
-                await userManager.AddToRoleAsync(user, Role.Employee.ToString());
-            var result = await userManager.CreateAsync(user, model.Password);
+            {
+                await roleManager.CreateAsync(new IdentityRole(Role.Employee.ToString()));                
+            }
+            await userManager.AddToRoleAsync(user, Role.Employee.ToString());
 
+            var result = await userManager.CreateAsync(user, model.Password);
+            
             if (!result.Succeeded)
                 return StatusCode(StatusCodes.Status500InternalServerError, new StatusResponse { Status = "Error", Message = "User creation failed! Please check user details and try again." });
-
-            return Ok(new StatusResponse { Status = "Success", Message = "User created successfully!" });
+            var accountResponse = mapper.Map<AccountResponse>(model);
+            return Ok(accountResponse);
         }
 
-        [Authorize(Roles = "Admin")]
+        //[Authorize(Roles = "Admin")]
         [HttpPost]
         [Route("register-admin")]
         public async Task<IActionResult> RegisterAdmin([FromBody] RegisterRequest model)
@@ -218,17 +220,18 @@ namespace ServerAPI.Controllers
             return Ok(new StatusResponse { Status = "Success", Message = "User created successfully!" });
         }
 
-		//[Authorize(Roles = "VD")]
+		[Authorize(Roles = "VD,Admin")]
 		[HttpGet]
 		[Route("get-all-users")]
-		public async Task<IActionResult> GetAllUsers()
+		public async Task<IEnumerable<AccountResponse>> GetAllUsers()
 		{
 			var users = await userManager.Users.ToListAsync();
 			if (users == null)
-				return StatusCode(StatusCodes.Status404NotFound, new StatusResponse { Status = "Error", Message = "No users found!" });
-
-			var mappedResult = mapper.Map<IEnumerable<UserResponse>>(users);
-			return Ok(mappedResult);
+			{
+                return null;
+			}
+			var mappedResult = mapper.Map<IEnumerable<AccountResponse>>(users);
+			return mappedResult;
 		}
 
 

@@ -2,11 +2,16 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.EntityFrameworkCore;
 using ServerAPI.Data;
+using ServerAPI.Entities;
 using ServerAPI.Models;
+using ServerAPI.Models.Response;
 
 namespace ServerAPI.Controllers
 {
@@ -14,32 +19,66 @@ namespace ServerAPI.Controllers
     [ApiController]
     public class OrderController : ControllerBase
     {
-        private readonly NorthwindContext _context;
+        private readonly NorthwindContext context;
+        private readonly UserManager<Account> userManager;
 
-        public OrderController(NorthwindContext context)
+        public OrderController(NorthwindContext _context, UserManager<Account> _userManager)
         {
-            _context = context;
+            this.context = _context;
+            userManager = _userManager;
         }
 
-        // GET: api/Order
-        [HttpGet]
-        public async Task<ActionResult<IEnumerable<Orders>>> GetOrders()
+        [Authorize(Roles ="VD,Admin,CountryManager")]
+        [HttpGet("get-all-orders")]
+        public async Task<ActionResult<IEnumerable<Orders>>> GetAllOrders()
         {
-            return await _context.Orders.ToListAsync();
-        }
+            var user = await userManager.FindByNameAsync(HttpContext.User.Identity.Name);
 
-        // GET: api/Order/5
-        [HttpGet("{id}")]
-        public async Task<ActionResult<Orders>> GetOrders(int id)
-        {
-            var orders = await _context.Orders.FindAsync(id);
-
-            if (orders == null)
-            {
-                return NotFound();
+            if (await userManager.IsInRoleAsync(user, Role.CountryManager.ToString()) == true)
+			{
+                var employee = await context.Employees.Where(x => x.EmployeeId == user.EmployeeId).FirstOrDefaultAsync();
+                var orderResult = await context.Orders.Where(x => x.ShipCountry == employee.Country).ToListAsync();
+                if (orderResult == null)
+				{
+                    return StatusCode(StatusCodes.Status500InternalServerError);
+				}
+			}                     
+            var result = await context.Orders.ToListAsync();
+			if (result != null)
+			{
+                return StatusCode(StatusCodes.Status400BadRequest, new StatusResponse { Status = "Error", Message = "Something went wrong" });
             }
+            return Ok(result);			
+        }
 
-            return orders;
+
+        [Authorize(Roles = "VD,Admin,CountryManager")]
+        [HttpGet("get-country-orders")]
+        public async Task<ActionResult<IEnumerable<Orders>>> GetCountryOrders(string country)
+        {
+            
+            var user = await userManager.FindByNameAsync(HttpContext.User.Identity.Name);
+            if (await userManager.IsInRoleAsync(user, Role.CountryManager.ToString()) == true)  
+			{
+                var employee = await context.Employees.Where(x => x.EmployeeId == user.EmployeeId).FirstOrDefaultAsync();
+                var orderResult = await context.Orders.Where(x => x.ShipCountry == employee.Country).ToListAsync();
+                if (orderResult == null)
+				{
+                    return StatusCode(StatusCodes.Status500InternalServerError);
+				}
+			}
+            if (await userManager.IsInRoleAsync(user, Role.Admin.ToString()) == true || await userManager.IsInRoleAsync(user, Role.VD.ToString()) == true)
+            {
+                var orderResult = await context.Orders.Where(x => x.ShipCountry == country).ToListAsync();
+                return orderResult;
+			}
+
+            var result = await context.Orders.ToListAsync();
+			if (result != null)
+			{
+                return StatusCode(StatusCodes.Status400BadRequest, new StatusResponse { Status = "Error", Message = "Something went wrong" });
+            }
+            return Ok(result);
         }
 
         // PUT: api/Order/5
@@ -53,11 +92,11 @@ namespace ServerAPI.Controllers
                 return BadRequest();
             }
 
-            _context.Entry(orders).State = EntityState.Modified;
+            context.Entry(orders).State = EntityState.Modified;
 
             try
             {
-                await _context.SaveChangesAsync();
+                await context.SaveChangesAsync();
             }
             catch (DbUpdateConcurrencyException)
             {
@@ -80,8 +119,8 @@ namespace ServerAPI.Controllers
         [HttpPost]
         public async Task<ActionResult<Orders>> PostOrders(Orders orders)
         {
-            _context.Orders.Add(orders);
-            await _context.SaveChangesAsync();
+            context.Orders.Add(orders);
+            await context.SaveChangesAsync();
 
             return CreatedAtAction("GetOrders", new { id = orders.OrderId }, orders);
         }
@@ -90,21 +129,21 @@ namespace ServerAPI.Controllers
         [HttpDelete("{id}")]
         public async Task<ActionResult<Orders>> DeleteOrders(int id)
         {
-            var orders = await _context.Orders.FindAsync(id);
+            var orders = await context.Orders.FindAsync(id);
             if (orders == null)
             {
                 return NotFound();
             }
 
-            _context.Orders.Remove(orders);
-            await _context.SaveChangesAsync();
+            context.Orders.Remove(orders);
+            await context.SaveChangesAsync();
 
             return orders;
         }
 
         private bool OrdersExists(int id)
         {
-            return _context.Orders.Any(e => e.OrderId == id);
+            return context.Orders.Any(e => e.OrderId == id);
         }
     }
 }

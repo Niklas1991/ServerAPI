@@ -3,6 +3,7 @@ using ServerAPI;
 using ServerAPI.Entities;
 using ServerAPI.Models;
 using ServerAPI.Models.Response;
+using System.Collections.Generic;
 
 namespace ServerAPI.Data
 {
@@ -16,6 +17,7 @@ namespace ServerAPI.Data
            CreateMap<UpdateRequest, Account>().ReverseMap();
            CreateMap<AccountResponse, Account>().ReverseMap();
            CreateMap<Account, UserResponse>().ReverseMap();
+           CreateMap<AccountResponse, RegisterRequest>().ReverseMap();
         }
 
     }

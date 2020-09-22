@@ -75,6 +75,7 @@ namespace ServerAPI.Services
 
 				// save refresh token
 				user.RefreshTokens.Add(refreshToken);
+				user.JwtToken = jwtToken;
 				var result = await userManager.UpdateAsync(user);
 				if (!result.Succeeded)
 				{
@@ -122,7 +123,6 @@ namespace ServerAPI.Services
 			// replace old refresh token with a new one and save
 			var newRefreshToken = GenerateRefreshToken();
 			refreshToken.Revoked = DateTime.UtcNow;
-			//refreshToken.RevokedByIp = ipAddress;
 			refreshToken.ReplacedByToken = newRefreshToken.Token;
 			account.RefreshTokens.Add(newRefreshToken);
 			var result = await userManager.UpdateAsync(account);
