@@ -3,13 +3,11 @@ using System.ComponentModel.DataAnnotations;
 namespace ServerAPI.Models.Response
 {
     public class RegisterRequest
-    {
-      
-
+    {    
         [Required]
         public string UserName { get; set; }
         
-        [Required]
+        [Required]         
         public int EmployeeId { get; set; }
 
         [Required]
@@ -19,6 +17,5 @@ namespace ServerAPI.Models.Response
         [Required]
         [MinLength(6)]
         public string Password { get; set; }
-
     }
 }

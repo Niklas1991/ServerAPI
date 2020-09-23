@@ -30,7 +30,7 @@ namespace ServerAPI.Controllers
 
         [Authorize(Roles ="VD,Admin,CountryManager")]
         [HttpGet("get-all-orders")]
-        public async Task<ActionResult<IEnumerable<Orders>>> GetAllOrders()
+        public async Task<ActionResult<IEnumerable<OrderResponse>>> GetAllOrders()
         {
             var user = await userManager.FindByNameAsync(HttpContext.User.Identity.Name);
 
@@ -40,13 +40,14 @@ namespace ServerAPI.Controllers
                 var orderResult = await context.Orders.Where(x => x.ShipCountry == employee.Country).ToListAsync();
                 if (orderResult == null)
 				{
-                    return StatusCode(StatusCodes.Status500InternalServerError);
-				}
+                    BadRequest();
+                }
+                return Ok(orderResult);
 			}                     
             var result = await context.Orders.ToListAsync();
-			if (result != null)
+			if (result == null)
 			{
-                return StatusCode(StatusCodes.Status400BadRequest, new StatusResponse { Status = "Error", Message = "Something went wrong" });
+                BadRequest();
             }
             return Ok(result);			
         }
@@ -54,7 +55,7 @@ namespace ServerAPI.Controllers
 
         [Authorize(Roles = "VD,Admin,CountryManager")]
         [HttpGet("get-country-orders")]
-        public async Task<ActionResult<IEnumerable<Orders>>> GetCountryOrders(string country)
+        public async Task<ActionResult<IEnumerable<OrderResponse>>> GetCountryOrders(string country)
         {
             var orderResult = new List<Orders>();
             var user = await userManager.FindByNameAsync(HttpContext.User.Identity.Name);
@@ -64,20 +65,20 @@ namespace ServerAPI.Controllers
                 orderResult = await context.Orders.Where(x => x.ShipCountry == employee.Country).ToListAsync();
                 if (orderResult == null)
 				{
-                    return NotFound();
+                    return BadRequest();
                 }                
 			}
             if (await userManager.IsInRoleAsync(user, Role.Admin.ToString()) == true || await userManager.IsInRoleAsync(user, Role.VD.ToString()) == true)
             {
                 orderResult = await context.Orders.Where(x => x.ShipCountry == country).ToListAsync();
-                return NotFound();
-			}
-            return Ok(orderResult);
+                return Ok(orderResult);
+            }
+            return Unauthorized();
         }
 
         [Authorize(Roles = "Employee,Admin,VD")]
         [HttpGet("get-my-orders")]
-        public async Task<ActionResult<IEnumerable<Orders>>> GetMyOrders(int employeeId)
+        public async Task<ActionResult<IEnumerable<OrderResponse>>> GetMyOrders(int employeeId)
         {
             var orderResult = new List<Orders>();
             var user = await userManager.FindByNameAsync(HttpContext.User.Identity.Name);

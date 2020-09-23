@@ -40,11 +40,19 @@ namespace ServerAPI.Controllers
             context = _context;
             accountService = _accounService;
         }
-
+        //LOGIN endpoint
         [HttpPost("authenticate")]
         public async Task<IActionResult> Authenticate([FromBody] AuthenticateRequest model)
         {
             var response = await accountService.Authenticate(model);
+            
+            return Ok(response);
+        }
+        [HttpPost("refresh-token")]
+        public ActionResult<AuthenticateResponse> RefreshToken(RefreshTokenRequest refreshToken)
+        {
+            
+            var response = accountService.RefreshToken(refreshToken.RefreshToken);
             
             return Ok(response);
         }
@@ -66,8 +74,19 @@ namespace ServerAPI.Controllers
             var userExists = await userManager.FindByNameAsync(model.UserName);
             var employeeExists = userManager.Users.Where(x => x.EmployeeId == model.EmployeeId);
             if (userExists != null)
-                return StatusCode(StatusCodes.Status400BadRequest, new StatusResponse { Status = "Error", Message = "User already exists with that username!" });
-
+            {
+                return BadRequest("Username already taken!");
+            }
+            var employeeInUse = context.Users.Where(x => x.EmployeeId == model.EmployeeId).FirstOrDefault();
+            if (employeeInUse != null)
+            {
+                return BadRequest("Employee already linked!");
+            }
+            var emailInUse = context.Users.Where(x => x.Email == model.Email).FirstOrDefault();
+            if (emailInUse != null)
+            {
+                return BadRequest("Email already in use!");
+            }
             //Finds employee with the specified EmployeeID
             string query = @"Select * FROM Employees WHERE EmployeeID = @EmployeeID ";
             using (SqlConnection connection = new SqlConnection(configuration.GetConnectionString("DataContext")))
@@ -82,27 +101,33 @@ namespace ServerAPI.Controllers
             };
                       
             var user = mapper.Map<Account>(model);
-           
-            //if (employeeExists != null)
-            //{
-            //    user.EmployeeId = model.EmployeeId;
-            //    return StatusCode(StatusCodes.Status202Accepted, new StatusResponse { Status = "Username & Employee linked!", Message = "User linked to Employee succeeded!" });
-            //}
+            var isFirstAccount = context.Users.Count();
+            if (isFirstAccount == 0)
+            {
+                if (!await roleManager.RoleExistsAsync(Role.Admin.ToString()))
+                {
+                    await roleManager.CreateAsync(new IdentityRole(Role.Admin.ToString()));
+                }
+                await userManager.AddToRoleAsync(user, Role.Admin.ToString());
+            }
+
             if (!await roleManager.RoleExistsAsync(Role.Employee.ToString()))
             {
                 await roleManager.CreateAsync(new IdentityRole(Role.Employee.ToString()));                
             }
             await userManager.AddToRoleAsync(user, Role.Employee.ToString());
-
+            
             var result = await userManager.CreateAsync(user, model.Password);
             
             if (!result.Succeeded)
-                return StatusCode(StatusCodes.Status500InternalServerError, new StatusResponse { Status = "Error", Message = "User creation failed! Please check user details and try again." });
+			{
+                return BadRequest("Internal server error");
+			}
             var accountResponse = mapper.Map<AccountResponse>(model);
             return Ok(accountResponse);
         }
 
-        //[Authorize(Roles = "Admin")]
+        [Authorize(Roles = "Admin")]
         [HttpPost]
         [Route("register-admin")]
         public async Task<IActionResult> RegisterAdmin([FromBody] RegisterRequest model)
@@ -111,113 +136,156 @@ namespace ServerAPI.Controllers
             using (SqlConnection connection = new SqlConnection(configuration.GetConnectionString("DataContext")))
             {
                 SqlCommand command = new SqlCommand(query, connection);
+                await connection.OpenAsync();
                 command.Parameters.AddWithValue("@EmployeeID", model.EmployeeId);
-            };
+                var sqlResult = await command.ExecuteNonQueryAsync();
 
+                if (sqlResult != -1)
+                    throw new Exception("Employee does not exist.");
+            };
             var userExists = await userManager.FindByNameAsync(model.UserName);
             var employeeExists = await userManager.FindByIdAsync(model.EmployeeId.ToString());
             if (userExists != null)
-                return StatusCode(StatusCodes.Status400BadRequest, new StatusResponse { Status = "Error", Message = "User already exists!" });
-
-            
-            var user = mapper.Map<Account>(model);
-
-            if (employeeExists != null)
-            {
-                user.EmployeeId = model.EmployeeId;
-                return StatusCode(StatusCodes.Status202Accepted, new StatusResponse { Status = "Username & Employee linked!", Message = "User linked to Employee succeeded!" });
+			{
+                return BadRequest("User already exists!");
             }
+            var employeeInUse = context.Users.Where(x => x.EmployeeId == model.EmployeeId).FirstOrDefault();
+            if (employeeInUse != null)
+			{
+                return BadRequest("Employee already linked!");
+			}
+            var emailInUse = context.Users.Where(x => x.Email == model.Email).FirstOrDefault();
+            if (emailInUse != null)
+            {
+                return BadRequest("Email already in use!");
+            }
+            var user = mapper.Map<Account>(model);		
 
-            if (!await roleManager.RoleExistsAsync(Role.Admin.ToString()))
+			if (!await roleManager.RoleExistsAsync(Role.Admin.ToString()))
+			{
                 await roleManager.CreateAsync(new IdentityRole(Role.Admin.ToString()));
-            if (await roleManager.RoleExistsAsync(Role.Employee.ToString()))
                 await userManager.AddToRoleAsync(user, Role.Admin.ToString());
-
-
+            }                
+            if (!await roleManager.RoleExistsAsync(Role.Employee.ToString()))
+			{
+                await roleManager.CreateAsync(new IdentityRole(Role.Employee.ToString()));
+                await userManager.AddToRoleAsync(user, Role.Employee.ToString());
+            }                
             var result = await userManager.CreateAsync(user, model.Password);
             if (!result.Succeeded)
 			{
-                if (!result.Succeeded)
-                    return StatusCode(StatusCodes.Status500InternalServerError, new StatusResponse { Status = "Error", Message = "User creation failed! Please check user details and try again." });
-
+                return BadRequest("User creation failed! Please check user details and try again.");
             }
-            return Ok(new StatusResponse { Status = "Success", Message = "Admin User created successfully!" });
+            var accountResponse = mapper.Map<AccountResponse>(model);
+            return Ok(accountResponse);
         }
         [Authorize(Roles = "Admin")]
         [HttpPost]
         [Route("register-vd")]
         public async Task<IActionResult> RegisterVD([FromBody] RegisterRequest model)
         {
-
             string query = @"Select * FROM Employees WHERE EmployeeID = @EmployeeID ";
             using (SqlConnection connection = new SqlConnection(configuration.GetConnectionString("DataContext")))
             {
                 SqlCommand command = new SqlCommand(query, connection);
+                await connection.OpenAsync();
                 command.Parameters.AddWithValue("@EmployeeID", model.EmployeeId);
+                var sqlResult = await command.ExecuteNonQueryAsync();
+
+                if (sqlResult != -1)
+                    throw new Exception("Employee does not exist.");
             };
 
             var userExists = await userManager.FindByNameAsync(model.UserName);
             var employeeExists = await userManager.FindByIdAsync(model.EmployeeId.ToString());
             if (userExists != null)
-                return StatusCode(StatusCodes.Status400BadRequest, new StatusResponse { Status = "Error", Message = "User already exists with that username!" });
-
+            {
+                return BadRequest("User already exists!");
+            }
+            var employeeInUse = context.Users.Where(x => x.EmployeeId == model.EmployeeId).FirstOrDefault();
+            if (employeeInUse != null)
+            {
+                return BadRequest("Employee already linked!");
+            }
+            var emailInUse = context.Users.Where(x => x.Email == model.Email).FirstOrDefault();
+            if (emailInUse != null)
+            {
+                return BadRequest("Email already in use!");
+            }
             var user = mapper.Map<Account>(model);
 
-            if (employeeExists != null)
-            {
-                user.EmployeeId = model.EmployeeId;
-                return StatusCode(StatusCodes.Status202Accepted, new StatusResponse { Status = "Username & Employee linked!", Message = "User linked to Employee succeeded!" });
-            }
-            if (!await roleManager.RoleExistsAsync(Role.Employee.ToString()))
-                await roleManager.CreateAsync(new IdentityRole(Role.Employee.ToString()));
-            if (await roleManager.RoleExistsAsync(Role.Employee.ToString()))
-                await userManager.AddToRoleAsync(user, Role.Employee.ToString());
             if (!await roleManager.RoleExistsAsync(Role.VD.ToString()))
+            {
                 await roleManager.CreateAsync(new IdentityRole(Role.VD.ToString()));
-            if (await roleManager.RoleExistsAsync(Role.VD.ToString()))
                 await userManager.AddToRoleAsync(user, Role.VD.ToString());
+            }
+
+            if (!await roleManager.RoleExistsAsync(Role.Employee.ToString()))
+            {
+                await roleManager.CreateAsync(new IdentityRole(Role.Employee.ToString()));
+                await userManager.AddToRoleAsync(user, Role.Employee.ToString());
+            }
             var result = await userManager.CreateAsync(user, model.Password);
-
             if (!result.Succeeded)
-                return StatusCode(StatusCodes.Status500InternalServerError, new StatusResponse { Status = "Error", Message = "User creation failed! Please check user details and try again." });
-
-            return Ok(new StatusResponse { Status = "Success", Message = "User created successfully!" });
+            {
+                return BadRequest("User creation failed! Please check user details and try again.");
+            }
+            var accountResponse = mapper.Map<AccountResponse>(model);
+            return Ok(accountResponse);
         }
         [Authorize(Roles = "Admin")]
         [HttpPost]
         [Route("register-countrymanager")]
         public async Task<IActionResult> RegisterCountryManager([FromBody] RegisterRequest model)
         {
-
             string query = @"Select * FROM Employees WHERE EmployeeID = @EmployeeID ";
             using (SqlConnection connection = new SqlConnection(configuration.GetConnectionString("DataContext")))
             {
                 SqlCommand command = new SqlCommand(query, connection);
+                await connection.OpenAsync();
                 command.Parameters.AddWithValue("@EmployeeID", model.EmployeeId);
+                var sqlResult = await command.ExecuteNonQueryAsync();
+
+                if (sqlResult != -1)
+                    throw new Exception("Employee does not exist.");
             };
 
             var userExists = await userManager.FindByNameAsync(model.UserName);
             var employeeExists = await userManager.FindByIdAsync(model.EmployeeId.ToString());
             if (userExists != null)
-                return StatusCode(StatusCodes.Status400BadRequest, new StatusResponse { Status = "Error", Message = "User already exists with that username!" });
-
+            {
+                return BadRequest("User already exists!");
+            }
+            var employeeInUse = context.Users.Where(x => x.EmployeeId == model.EmployeeId).FirstOrDefault();
+            if (employeeInUse != null)
+            {
+                return BadRequest("Employee already linked!");
+            }
+            var emailInUse = context.Users.Where(x => x.Email == model.Email).FirstOrDefault();
+            if (emailInUse != null)
+            {
+                return BadRequest("Email already in use!");
+            }
             var user = mapper.Map<Account>(model);
 
-            if (employeeExists != null)
+            if (!await roleManager.RoleExistsAsync(Role.CountryManager.ToString()))
             {
-                user.EmployeeId = model.EmployeeId;
-                return StatusCode(StatusCodes.Status202Accepted, new StatusResponse { Status = "Username & Employee linked!", Message = "User linked to Employee succeeded!" });
+                await roleManager.CreateAsync(new IdentityRole(Role.CountryManager.ToString()));
+                await userManager.AddToRoleAsync(user, Role.CountryManager.ToString());
             }
+
             if (!await roleManager.RoleExistsAsync(Role.Employee.ToString()))
+            {
                 await roleManager.CreateAsync(new IdentityRole(Role.Employee.ToString()));
-            if (await roleManager.RoleExistsAsync(Role.Employee.ToString()))
                 await userManager.AddToRoleAsync(user, Role.Employee.ToString());
+            }
             var result = await userManager.CreateAsync(user, model.Password);
-
             if (!result.Succeeded)
-                return StatusCode(StatusCodes.Status500InternalServerError, new StatusResponse { Status = "Error", Message = "User creation failed! Please check user details and try again." });
-
-            return Ok(new StatusResponse { Status = "Success", Message = "User created successfully!" });
+            {
+                return BadRequest("User creation failed! Please check user details and try again.");
+            }
+            var accountResponse = mapper.Map<AccountResponse>(model);
+            return Ok(accountResponse);
         }
 
 		[Authorize(Roles = "VD,Admin")]
@@ -241,15 +309,17 @@ namespace ServerAPI.Controllers
 		public async Task<IActionResult> Delete(string userName)
 		{
 			var userToDelete = await userManager.FindByNameAsync(userName);
-		
-			if (userToDelete == null)
-				return StatusCode(StatusCodes.Status400BadRequest, new StatusResponse { Status = "Error", Message = "User not found" });
+
+            if (userToDelete == null)
+                return BadRequest("User does not exists, check your spelling.");
             			
 			var result = await userManager.DeleteAsync(userToDelete);
 			if (!result.Succeeded)
-				return StatusCode(StatusCodes.Status500InternalServerError, new StatusResponse { Status = "Error", Message = "User deletion failed! Please check user details and try again." });
-
-			return Ok(new StatusResponse { Status = "Success", Message = "User deleted successfully!" });
+			{
+                return BadRequest("User deletion failed!");
+            }
+				
+			return Ok(result);
 		}
 	}
 }

@@ -27,13 +27,8 @@ namespace ServerAPI.Services
 		Task<AuthenticateResponse> Authenticate(AuthenticateRequest model);
 		Task<AuthenticateResponse> RefreshToken(string token);
 		Task RevokeToken(string token);
-		Task<AccountResponse> UpdateUser([FromBody] UpdateRequest model, ClaimsPrincipal user);
-
+		Task<AccountResponse> UpdateUser([FromBody] UpdateRequest model, ClaimsPrincipal user);		
 		//void ValidateResetToken(ValidateResetTokenRequest model);
-
-
-
-
 	}
 
 	public class AccountService : IAccountService
@@ -45,7 +40,6 @@ namespace ServerAPI.Services
 		private readonly UserManager<Account> userManager;
 		private readonly RoleManager<IdentityRole> roleManager;
 
-
 		public AccountService(
 			NorthwindContext context,
 			IMapper mapper,
@@ -53,7 +47,6 @@ namespace ServerAPI.Services
 			IConfiguration configuration,
 			UserManager<Account> _userManager,
 			RoleManager<IdentityRole> _roleManager)
-
 		{
 			_context = context;
 			_mapper = mapper;
@@ -68,11 +61,9 @@ namespace ServerAPI.Services
 			var user = await userManager.FindByNameAsync(model.UserName);
 			if (user != null && await userManager.CheckPasswordAsync(user, model.Password))
 			{
-
 				// authentication successful so generate jwt and refresh tokens
 				var jwtToken = await GenerateJWTToken(user);
 				var refreshToken = GenerateRefreshToken();
-
 				// save refresh token
 				user.RefreshTokens.Add(refreshToken);
 				user.JwtToken = jwtToken;
@@ -90,29 +81,27 @@ namespace ServerAPI.Services
 			return null;
 		}
 
-		
-
 		public async Task<AccountResponse> UpdateUser([FromBody] UpdateRequest model, ClaimsPrincipal user)
 		{
-			var userToUpdate = await userManager.FindByNameAsync(model.UserName);
-			
-		
+			var userToUpdate = await userManager.FindByNameAsync(model.UserName);		
 			if (userToUpdate == null)
+			{
 				throw new AppException("Error, no user found!");
-
+			}
+				
 			if (user.Identity.Name != userToUpdate.UserName && user.Claims.Where(s => s.Type == model.Role).Any(s => s.Value == "Admin") == false)
+			{
 				throw new AppException("Unauthorized to update this user!");
-			
+			}			
 			var mappedUser = _mapper.Map(model, userToUpdate);
-
 			var result = await userManager.UpdateAsync(mappedUser);
-
 			if (!result.Succeeded)
+			{
 				throw new AppException("User update failed! Please check user details and try again.");
+			}				
 			mappedUser.Updated = DateTime.Now;
 			var mappedResult = _mapper.Map<AccountResponse>(mappedUser);
 			return mappedResult;
-
 		}
 		#region Tokens
 
@@ -127,11 +116,11 @@ namespace ServerAPI.Services
 			account.RefreshTokens.Add(newRefreshToken);
 			var result = await userManager.UpdateAsync(account);
 			if (!result.Succeeded)
+			{				
 				throw new AppException("Refreshtoken could not be added!");
-
+			}
 			// generate new jwt
 			var jwtToken = await GenerateJWTToken(account);
-
 			var response = _mapper.Map<AuthenticateResponse>(account);
 			response.JwtToken = jwtToken;
 			response.RefreshToken = newRefreshToken.Token;
@@ -148,8 +137,6 @@ namespace ServerAPI.Services
 			var result = await userManager.UpdateAsync(account);
 			if (!result.Succeeded)
 				throw new AppException("Tokenrevoke failed!");
-
-
 		}
 
 		private async Task<string> GenerateJWTToken(Account account)
@@ -165,8 +152,7 @@ namespace ServerAPI.Services
 			{
 				authClaims.Add(new Claim(ClaimTypes.Role, userRole));
 			}
-
-			
+						
 			var key = Encoding.ASCII.GetBytes(_configuration["JWT:Secret"]);
 			var tokenDescriptor = new JwtSecurityToken(
 				issuer: _configuration["JWT:ValidIssuer"],
@@ -195,7 +181,6 @@ namespace ServerAPI.Services
 				Token = RandomTokenString(),
 				Expires = DateTime.UtcNow.AddDays(7),
 				Created = DateTime.UtcNow,
-
 			};
 		}
 
@@ -204,13 +189,9 @@ namespace ServerAPI.Services
 			using var rngCryptoServiceProvider = new RNGCryptoServiceProvider();
 			var randomBytes = new byte[40];
 			rngCryptoServiceProvider.GetBytes(randomBytes);
-
 			return BitConverter.ToString(randomBytes).Replace("-", "");
 		}
-
-
 		#endregion
-
 	}
 }
 
