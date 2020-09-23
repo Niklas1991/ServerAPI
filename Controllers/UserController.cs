@@ -163,14 +163,14 @@ namespace ServerAPI.Controllers
 
 			if (!await roleManager.RoleExistsAsync(Role.Admin.ToString()))
 			{
-                await roleManager.CreateAsync(new IdentityRole(Role.Admin.ToString()));
-                await userManager.AddToRoleAsync(user, Role.Admin.ToString());
-            }                
+                await roleManager.CreateAsync(new IdentityRole(Role.Admin.ToString()));                
+            }
+            await userManager.AddToRoleAsync(user, Role.Admin.ToString());
             if (!await roleManager.RoleExistsAsync(Role.Employee.ToString()))
 			{
-                await roleManager.CreateAsync(new IdentityRole(Role.Employee.ToString()));
-                await userManager.AddToRoleAsync(user, Role.Employee.ToString());
-            }                
+                await roleManager.CreateAsync(new IdentityRole(Role.Employee.ToString()));                
+            }
+            await userManager.AddToRoleAsync(user, Role.Employee.ToString());
             var result = await userManager.CreateAsync(user, model.Password);
             if (!result.Succeeded)
 			{
@@ -216,15 +216,15 @@ namespace ServerAPI.Controllers
 
             if (!await roleManager.RoleExistsAsync(Role.VD.ToString()))
             {
-                await roleManager.CreateAsync(new IdentityRole(Role.VD.ToString()));
-                await userManager.AddToRoleAsync(user, Role.VD.ToString());
+                await roleManager.CreateAsync(new IdentityRole(Role.VD.ToString()));                
             }
+            await userManager.AddToRoleAsync(user, Role.VD.ToString());
 
             if (!await roleManager.RoleExistsAsync(Role.Employee.ToString()))
             {
-                await roleManager.CreateAsync(new IdentityRole(Role.Employee.ToString()));
-                await userManager.AddToRoleAsync(user, Role.Employee.ToString());
+                await roleManager.CreateAsync(new IdentityRole(Role.Employee.ToString()));                
             }
+            await userManager.AddToRoleAsync(user, Role.Employee.ToString());
             var result = await userManager.CreateAsync(user, model.Password);
             if (!result.Succeeded)
             {
@@ -270,15 +270,14 @@ namespace ServerAPI.Controllers
 
             if (!await roleManager.RoleExistsAsync(Role.CountryManager.ToString()))
             {
-                await roleManager.CreateAsync(new IdentityRole(Role.CountryManager.ToString()));
-                await userManager.AddToRoleAsync(user, Role.CountryManager.ToString());
+                await roleManager.CreateAsync(new IdentityRole(Role.CountryManager.ToString()));                
             }
-
+            await userManager.AddToRoleAsync(user, Role.CountryManager.ToString());
             if (!await roleManager.RoleExistsAsync(Role.Employee.ToString()))
             {
-                await roleManager.CreateAsync(new IdentityRole(Role.Employee.ToString()));
-                await userManager.AddToRoleAsync(user, Role.Employee.ToString());
+                await roleManager.CreateAsync(new IdentityRole(Role.Employee.ToString()));                
             }
+            await userManager.AddToRoleAsync(user, Role.Employee.ToString());
             var result = await userManager.CreateAsync(user, model.Password);
             if (!result.Succeeded)
             {

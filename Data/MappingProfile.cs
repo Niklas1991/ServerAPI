@@ -18,6 +18,7 @@ namespace ServerAPI.Data
            CreateMap<AccountResponse, Account>().ReverseMap();
            CreateMap<Account, UserResponse>().ReverseMap();
            CreateMap<AccountResponse, RegisterRequest>().ReverseMap();
+            CreateMap<OrderResponse, Orders>().ReverseMap();
         }
 
     }

@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using AutoMapper;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
@@ -21,37 +22,41 @@ namespace ServerAPI.Controllers
     {
         private readonly NorthwindContext context;
         private readonly UserManager<Account> userManager;
+        private readonly IMapper mapper;
 
-        public OrderController(NorthwindContext _context, UserManager<Account> _userManager)
+        public OrderController(NorthwindContext _context, UserManager<Account> _userManager, IMapper _mapper)
         {
             this.context = _context;
             userManager = _userManager;
+            mapper = _mapper;
         }
 
         [Authorize(Roles ="VD,Admin,CountryManager")]
         [HttpGet("get-all-orders")]
         public async Task<ActionResult<IEnumerable<OrderResponse>>> GetAllOrders()
         {
+            var orderResult = new List<Orders>();
             var user = await userManager.FindByNameAsync(HttpContext.User.Identity.Name);
 
             if (await userManager.IsInRoleAsync(user, Role.CountryManager.ToString()) == true)
 			{
                 var employee = await context.Employees.Where(x => x.EmployeeId == user.EmployeeId).FirstOrDefaultAsync();
-                var orderResult = await context.Orders.Where(x => x.ShipCountry == employee.Country).ToListAsync();
+                orderResult = await context.Orders.Where(x => x.ShipCountry == employee.Country).ToListAsync();
                 if (orderResult == null)
 				{
                     BadRequest();
                 }
-                return Ok(orderResult);
-			}                     
-            var result = await context.Orders.ToListAsync();
-			if (result == null)
+                var mappedResult = mapper.Map<IEnumerable<OrderResponse>>(orderResult);
+                return Ok(mappedResult);
+            }                     
+            orderResult = await context.Orders.ToListAsync();
+			if (orderResult == null)
 			{
                 BadRequest();
             }
-            return Ok(result);			
+            var mappedResultAdminVD = mapper.Map<IEnumerable<OrderResponse>>(orderResult);
+            return Ok(mappedResultAdminVD);
         }
-
 
         [Authorize(Roles = "VD,Admin,CountryManager")]
         [HttpGet("get-country-orders")]
@@ -66,12 +71,15 @@ namespace ServerAPI.Controllers
                 if (orderResult == null)
 				{
                     return BadRequest();
-                }                
-			}
+                }
+                var mappedResult = mapper.Map<IEnumerable<OrderResponse>>(orderResult);
+                return Ok(mappedResult);
+            }
             if (await userManager.IsInRoleAsync(user, Role.Admin.ToString()) == true || await userManager.IsInRoleAsync(user, Role.VD.ToString()) == true)
             {
                 orderResult = await context.Orders.Where(x => x.ShipCountry == country).ToListAsync();
-                return Ok(orderResult);
+                var mappedResult = mapper.Map<IEnumerable<OrderResponse>>(orderResult);
+                return Ok(mappedResult);
             }
             return Unauthorized();
         }
@@ -80,10 +88,11 @@ namespace ServerAPI.Controllers
         [HttpGet("get-my-orders")]
         public async Task<ActionResult<IEnumerable<OrderResponse>>> GetMyOrders(int employeeId)
         {
+            
             var orderResult = new List<Orders>();
             var user = await userManager.FindByNameAsync(HttpContext.User.Identity.Name);
             var employee = await context.Employees.Where(x => x.EmployeeId == user.EmployeeId).FirstOrDefaultAsync();
-
+            
             if (await userManager.IsInRoleAsync(user, Role.VD.ToString()) == true || await userManager.IsInRoleAsync(user, Role.Admin.ToString())==true)
 			{               
                 orderResult = await context.Orders.Where(x => x.EmployeeId == employeeId).ToListAsync();
@@ -91,7 +100,8 @@ namespace ServerAPI.Controllers
                 {
                     return NotFound();
                 }
-                return Ok(orderResult);
+                var mappedResult = mapper.Map<IEnumerable<OrderResponse>>(orderResult);
+                return Ok(mappedResult);
             }
             if (await userManager.IsInRoleAsync(user, Role.Employee.ToString()))
 			{
@@ -100,72 +110,10 @@ namespace ServerAPI.Controllers
                 {
                     return NotFound();
                 }
-                return Ok(orderResult);
+                var mappedResult = mapper.Map<IEnumerable<OrderResponse>>(orderResult);
+                return Ok(mappedResult);
             }
             return Unauthorized();
-        }
-        
-
-        [HttpPut("{id}")]
-        public async Task<IActionResult> PutOrders(int id, Orders orders)
-        {
-            if (id != orders.OrderId)
-            {
-                return BadRequest();
-            }
-
-            context.Entry(orders).State = EntityState.Modified;
-
-            try
-            {
-                await context.SaveChangesAsync();
-            }
-            catch (DbUpdateConcurrencyException)
-            {
-                if (!OrdersExists(id))
-                {
-                    return NotFound();
-                }
-                else
-                {
-                    throw;
-                }
-            }
-
-            return NoContent();
-        }
-
-        // POST: api/Order
-        // To protect from overposting attacks, enable the specific properties you want to bind to, for
-        // more details, see https://go.microsoft.com/fwlink/?linkid=2123754.
-        [HttpPost]
-        public async Task<ActionResult<Orders>> PostOrders(Orders orders)
-        {
-            context.Orders.Add(orders);
-            await context.SaveChangesAsync();
-
-            return CreatedAtAction("GetOrders", new { id = orders.OrderId }, orders);
-        }
-
-        // DELETE: api/Order/5
-        [HttpDelete("{id}")]
-        public async Task<ActionResult<Orders>> DeleteOrders(int id)
-        {
-            var orders = await context.Orders.FindAsync(id);
-            if (orders == null)
-            {
-                return NotFound();
-            }
-
-            context.Orders.Remove(orders);
-            await context.SaveChangesAsync();
-
-            return orders;
-        }
-
-        private bool OrdersExists(int id)
-        {
-            return context.Orders.Any(e => e.OrderId == id);
-        }
+        }    
     }
 }
