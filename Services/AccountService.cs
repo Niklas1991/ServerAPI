@@ -24,7 +24,7 @@ namespace ServerAPI.Services
 {
 	public interface IAccountService
 	{
-		Task<ActionResult<AuthenticateResponse>> Authenticate(AuthenticateRequest model);
+		Task<AuthenticateResponse> Authenticate(AuthenticateRequest model);
 		Task<AuthenticateResponse> RefreshToken(string token);
 		Task RevokeToken(string token);
 		Task<ActionResult<AccountResponse>> UpdateUser([FromBody] UpdateRequest model, ClaimsPrincipal user);		
@@ -56,7 +56,7 @@ namespace ServerAPI.Services
 			roleManager = _roleManager;
 		}
 
-		public async Task<ActionResult<AuthenticateResponse>> Authenticate(AuthenticateRequest model)
+		public async Task<AuthenticateResponse> Authenticate(AuthenticateRequest model)
 		{
 			var user = await userManager.FindByNameAsync(model.UserName);
 			if (user != null && await userManager.CheckPasswordAsync(user, model.Password))
@@ -70,7 +70,7 @@ namespace ServerAPI.Services
 				var result = await userManager.UpdateAsync(user);
 				if (!result.Succeeded)
 				{
-					return new ForbidResult();
+					throw new AppException("Something went wrong");
 				}
 
 				var response = _mapper.Map<AuthenticateResponse>(user);
@@ -78,7 +78,7 @@ namespace ServerAPI.Services
 				response.RefreshToken = refreshToken.Token;
 				return response;
 			}
-			return new BadRequestResult();
+			throw new AppException("Something went wrong");
 		}
 
 		public async Task<ActionResult<AccountResponse>> UpdateUser([FromBody] UpdateRequest model, ClaimsPrincipal user)

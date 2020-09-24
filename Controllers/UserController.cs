@@ -105,7 +105,7 @@ namespace ServerAPI.Controllers
             };
                       
             var user = mapper.Map<Account>(model);
-            var isFirstAccount = userManager.Users.Count();
+            var isFirstAccount = context.Users.Count();
             if (isFirstAccount == 0)
             {
                 if (!await roleManager.RoleExistsAsync(Role.Admin.ToString()))

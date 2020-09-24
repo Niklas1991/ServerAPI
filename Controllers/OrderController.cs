@@ -60,7 +60,7 @@ namespace ServerAPI.Controllers
 
         [Authorize(Roles = "VD,Admin,CountryManager")]
         [HttpGet("get-country-orders")]
-        public async Task<ActionResult<IEnumerable<OrderResponse>>> GetCountryOrders(string country)
+        public async Task<ActionResult<IEnumerable<OrderResponse>>> GetCountryOrders(string? country = null)
         {
             var orderResult = new List<Orders>();
             var user = await userManager.FindByNameAsync(HttpContext.User.Identity.Name);
@@ -86,7 +86,7 @@ namespace ServerAPI.Controllers
 
         [Authorize(Roles = "Employee,Admin,VD")]
         [HttpGet("get-my-orders")]
-        public async Task<ActionResult<IEnumerable<OrderResponse>>> GetMyOrders(int employeeId)
+        public async Task<ActionResult<IEnumerable<OrderResponse>>> GetMyOrders(int? employeeId = null)
         {
             
             var orderResult = new List<Orders>();
