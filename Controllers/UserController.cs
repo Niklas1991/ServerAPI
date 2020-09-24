@@ -63,6 +63,10 @@ namespace ServerAPI.Controllers
             
             var user = Request.HttpContext.User;
             var response = await accountService.UpdateUser(model, user);
+            if (response.Value == null)
+			{
+                return response.Result;
+			}
             return Ok(response);
         }
         
@@ -84,7 +88,7 @@ namespace ServerAPI.Controllers
             }
             var emailInUse = context.Users.Where(x => x.Email == model.Email).FirstOrDefault();
             if (emailInUse != null)
-            {
+            {                
                 return BadRequest("Email already in use!");
             }
             //Finds employee with the specified EmployeeID
@@ -101,7 +105,7 @@ namespace ServerAPI.Controllers
             };
                       
             var user = mapper.Map<Account>(model);
-            var isFirstAccount = context.Users.Count();
+            var isFirstAccount = userManager.Users.Count();
             if (isFirstAccount == 0)
             {
                 if (!await roleManager.RoleExistsAsync(Role.Admin.ToString()))
@@ -141,7 +145,7 @@ namespace ServerAPI.Controllers
                 var sqlResult = await command.ExecuteNonQueryAsync();
 
                 if (sqlResult != -1)
-                    throw new Exception("Employee does not exist.");
+                    return BadRequest("Employee does not exist!");
             };
             var userExists = await userManager.FindByNameAsync(model.UserName);
             var employeeExists = await userManager.FindByIdAsync(model.EmployeeId.ToString());
@@ -193,7 +197,7 @@ namespace ServerAPI.Controllers
                 var sqlResult = await command.ExecuteNonQueryAsync();
 
                 if (sqlResult != -1)
-                    throw new Exception("Employee does not exist.");
+                    return BadRequest("Employee does not exist!");
             };
 
             var userExists = await userManager.FindByNameAsync(model.UserName);
@@ -247,7 +251,7 @@ namespace ServerAPI.Controllers
                 var sqlResult = await command.ExecuteNonQueryAsync();
 
                 if (sqlResult != -1)
-                    throw new Exception("Employee does not exist.");
+                    return BadRequest("Employee does not exist!");
             };
 
             var userExists = await userManager.FindByNameAsync(model.UserName);

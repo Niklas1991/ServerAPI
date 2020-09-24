@@ -24,10 +24,10 @@ namespace ServerAPI.Services
 {
 	public interface IAccountService
 	{
-		Task<AuthenticateResponse> Authenticate(AuthenticateRequest model);
+		Task<ActionResult<AuthenticateResponse>> Authenticate(AuthenticateRequest model);
 		Task<AuthenticateResponse> RefreshToken(string token);
 		Task RevokeToken(string token);
-		Task<AccountResponse> UpdateUser([FromBody] UpdateRequest model, ClaimsPrincipal user);		
+		Task<ActionResult<AccountResponse>> UpdateUser([FromBody] UpdateRequest model, ClaimsPrincipal user);		
 		//void ValidateResetToken(ValidateResetTokenRequest model);
 	}
 
@@ -56,7 +56,7 @@ namespace ServerAPI.Services
 			roleManager = _roleManager;
 		}
 
-		public async Task<AuthenticateResponse> Authenticate(AuthenticateRequest model)
+		public async Task<ActionResult<AuthenticateResponse>> Authenticate(AuthenticateRequest model)
 		{
 			var user = await userManager.FindByNameAsync(model.UserName);
 			if (user != null && await userManager.CheckPasswordAsync(user, model.Password))
@@ -70,7 +70,7 @@ namespace ServerAPI.Services
 				var result = await userManager.UpdateAsync(user);
 				if (!result.Succeeded)
 				{
-					throw new AppException("Unable to authenticate!");
+					return new ForbidResult();
 				}
 
 				var response = _mapper.Map<AuthenticateResponse>(user);
@@ -78,26 +78,26 @@ namespace ServerAPI.Services
 				response.RefreshToken = refreshToken.Token;
 				return response;
 			}
-			return null;
+			return new BadRequestResult();
 		}
 
-		public async Task<AccountResponse> UpdateUser([FromBody] UpdateRequest model, ClaimsPrincipal user)
+		public async Task<ActionResult<AccountResponse>> UpdateUser([FromBody] UpdateRequest model, ClaimsPrincipal user)
 		{
 			var userToUpdate = await userManager.FindByNameAsync(model.UserName);		
 			if (userToUpdate == null)
 			{
-				throw new AppException("Error, no user found!");
+				return new NotFoundResult();
 			}
 				
 			if (user.Identity.Name != userToUpdate.UserName && user.Claims.Where(s => s.Type == model.Role).Any(s => s.Value == "Admin") == false)
 			{
-				throw new AppException("Unauthorized to update this user!");
+				return new UnauthorizedResult();
 			}			
 			var mappedUser = _mapper.Map(model, userToUpdate);
 			var result = await userManager.UpdateAsync(mappedUser);
 			if (!result.Succeeded)
 			{
-				throw new AppException("User update failed! Please check user details and try again.");
+				return new BadRequestResult();
 			}				
 			mappedUser.Updated = DateTime.Now;
 			var mappedResult = _mapper.Map<AccountResponse>(mappedUser);
