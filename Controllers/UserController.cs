@@ -102,25 +102,24 @@ namespace ServerAPI.Controllers
 
                 if (sqlResult != -1)
                     throw new Exception("Employee does not exist.");
-            };
-                      
-            var user = mapper.Map<Account>(model);
+            };                      
+            
             var isFirstAccount = context.Users.Count();
             if (isFirstAccount == 0)
             {
                 if (!await roleManager.RoleExistsAsync(Role.Admin.ToString()))
                 {
                     await roleManager.CreateAsync(new IdentityRole(Role.Admin.ToString()));
-                }
-                await userManager.AddToRoleAsync(user, Role.Admin.ToString());
+                }                
             }
 
             if (!await roleManager.RoleExistsAsync(Role.Employee.ToString()))
             {
                 await roleManager.CreateAsync(new IdentityRole(Role.Employee.ToString()));                
             }
+            var user = mapper.Map<Account>(model);
             await userManager.AddToRoleAsync(user, Role.Employee.ToString());
-            
+            await userManager.AddToRoleAsync(user, Role.Admin.ToString());
             var result = await userManager.CreateAsync(user, model.Password);
             
             if (!result.Succeeded)
@@ -162,19 +161,21 @@ namespace ServerAPI.Controllers
             if (emailInUse != null)
             {
                 return BadRequest("Email already in use!");
-            }
-            var user = mapper.Map<Account>(model);		
+            }            	
 
 			if (!await roleManager.RoleExistsAsync(Role.Admin.ToString()))
 			{
                 await roleManager.CreateAsync(new IdentityRole(Role.Admin.ToString()));                
             }
-            await userManager.AddToRoleAsync(user, Role.Admin.ToString());
+            
             if (!await roleManager.RoleExistsAsync(Role.Employee.ToString()))
 			{
                 await roleManager.CreateAsync(new IdentityRole(Role.Employee.ToString()));                
             }
+           
+            var user = mapper.Map<Account>(model);
             await userManager.AddToRoleAsync(user, Role.Employee.ToString());
+            await userManager.AddToRoleAsync(user, Role.Admin.ToString());
             var result = await userManager.CreateAsync(user, model.Password);
             if (!result.Succeeded)
 			{
@@ -216,18 +217,20 @@ namespace ServerAPI.Controllers
             {
                 return BadRequest("Email already in use!");
             }
-            var user = mapper.Map<Account>(model);
+            
 
             if (!await roleManager.RoleExistsAsync(Role.VD.ToString()))
             {
                 await roleManager.CreateAsync(new IdentityRole(Role.VD.ToString()));                
             }
-            await userManager.AddToRoleAsync(user, Role.VD.ToString());
+            
 
             if (!await roleManager.RoleExistsAsync(Role.Employee.ToString()))
             {
                 await roleManager.CreateAsync(new IdentityRole(Role.Employee.ToString()));                
             }
+            var user = mapper.Map<Account>(model);
+            await userManager.AddToRoleAsync(user, Role.VD.ToString());
             await userManager.AddToRoleAsync(user, Role.Employee.ToString());
             var result = await userManager.CreateAsync(user, model.Password);
             if (!result.Succeeded)
@@ -270,17 +273,19 @@ namespace ServerAPI.Controllers
             {
                 return BadRequest("Email already in use!");
             }
-            var user = mapper.Map<Account>(model);
+            
 
             if (!await roleManager.RoleExistsAsync(Role.CountryManager.ToString()))
             {
                 await roleManager.CreateAsync(new IdentityRole(Role.CountryManager.ToString()));                
             }
-            await userManager.AddToRoleAsync(user, Role.CountryManager.ToString());
+            
             if (!await roleManager.RoleExistsAsync(Role.Employee.ToString()))
             {
                 await roleManager.CreateAsync(new IdentityRole(Role.Employee.ToString()));                
             }
+            var user = mapper.Map<Account>(model);
+            await userManager.AddToRoleAsync(user, Role.CountryManager.ToString());
             await userManager.AddToRoleAsync(user, Role.Employee.ToString());
             var result = await userManager.CreateAsync(user, model.Password);
             if (!result.Succeeded)

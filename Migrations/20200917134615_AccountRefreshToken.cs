@@ -50,7 +50,7 @@ namespace ServerAPI.Migrations
                     table.PrimaryKey("PK_AspNetUsers", x => x.Id);
                 });
 
-            
+
 
             migrationBuilder.CreateTable(
                 name: "AspNetRoleClaims",
@@ -130,8 +130,8 @@ namespace ServerAPI.Migrations
                         principalTable: "AspNetRoles",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
-                   
-                });
+					
+				});
 
             migrationBuilder.CreateTable(
                 name: "AspNetUserTokens",
@@ -177,7 +177,7 @@ namespace ServerAPI.Migrations
                         onDelete: ReferentialAction.Cascade);
                 });
 
-           
+
 
             migrationBuilder.CreateIndex(
                 name: "IX_AspNetRoleClaims_RoleId",
@@ -218,13 +218,13 @@ namespace ServerAPI.Migrations
                 unique: true,
                 filter: "[NormalizedUserName] IS NOT NULL");
 
-            
+
             migrationBuilder.CreateIndex(
                 name: "IX_RefreshToken_AccountId",
                 table: "RefreshToken",
                 column: "AccountId");
 
-            
+
         }
 
         protected override void Down(MigrationBuilder migrationBuilder)
