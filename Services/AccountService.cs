@@ -70,7 +70,7 @@ namespace ServerAPI.Services
 				var result = await userManager.UpdateAsync(user);
 				if (!result.Succeeded)
 				{
-					throw new AppException("Something went wrong");
+					throw new AppException("Something went wrong while adding token to user.");
 				}
 
 				var response = _mapper.Map<AuthenticateResponse>(user);
@@ -78,7 +78,7 @@ namespace ServerAPI.Services
 				response.RefreshToken = refreshToken.Token;
 				return response;
 			}
-			throw new AppException("Something went wrong");
+			throw new AppException("User not found");
 		}
 
 		public async Task<ActionResult<AccountResponse>> UpdateUser([FromBody] UpdateRequest model, ClaimsPrincipal user)

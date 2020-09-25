@@ -44,7 +44,7 @@ namespace ServerAPI.Controllers
                 orderResult = await context.Orders.Where(x => x.ShipCountry == employee.Country).ToListAsync();
                 if (orderResult == null)
 				{
-                    BadRequest();
+                    Unauthorized();
                 }
                 var mappedResult = mapper.Map<IEnumerable<OrderResponse>>(orderResult);
                 return Ok(mappedResult);
@@ -52,7 +52,7 @@ namespace ServerAPI.Controllers
             orderResult = await context.Orders.ToListAsync();
 			if (orderResult == null)
 			{
-                BadRequest();
+                Unauthorized();
             }
             var mappedResultAdminVD = mapper.Map<IEnumerable<OrderResponse>>(orderResult);
             return Ok(mappedResultAdminVD);

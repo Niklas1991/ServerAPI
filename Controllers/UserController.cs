@@ -79,17 +79,17 @@ namespace ServerAPI.Controllers
             var employeeExists = userManager.Users.Where(x => x.EmployeeId == model.EmployeeId);
             if (userExists != null)
             {
-                return BadRequest("Username already taken!");
+                return BadRequest("! Username already taken!");
             }
             var employeeInUse = context.Users.Where(x => x.EmployeeId == model.EmployeeId).FirstOrDefault();
             if (employeeInUse != null)
             {
-                return BadRequest("Employee already linked!");
+                return BadRequest("! Employee already linked!");
             }
             var emailInUse = context.Users.Where(x => x.Email == model.Email).FirstOrDefault();
             if (emailInUse != null)
             {                
-                return BadRequest("Email already in use!");
+                return BadRequest("! Email already in use!");
             }
             //Finds employee with the specified EmployeeID
             string query = @"Select * FROM Employees WHERE EmployeeID = @EmployeeID ";
